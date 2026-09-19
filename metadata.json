@@ -1,0 +1,6 @@
+{
+  "name": "Liberation War Museum Office Management System",
+  "description": "Enterprise Office & Task Management System for Liberation War Museum (LWM) featuring cross-department collaboration, real-time tracking, approvals, projects, and organogram.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
