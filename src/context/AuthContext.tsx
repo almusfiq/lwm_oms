@@ -43,15 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       refreshMe().finally(() => setLoading(false));
     } else {
-      // Auto-login as CEO on first visit (no stored session)
-      api.auth.login('ceo@liberationwarmuseum.org', 'LWM@2026')
-        .then(res => {
-          localStorage.setItem('lwm_auth_token', res.token);
-          setUser(res.user);
-          return refreshMe();
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
+      setLoading(false);
     }
   }, []);
 
