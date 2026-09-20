@@ -9,7 +9,7 @@ import {
   CheckSquare, AlertCircle, GitPullRequest, FolderKanban,
   Plus, ArrowRight, ShieldCheck, Users, Building2,
   TrendingUp, CheckCheck, Clock, UserCog, BarChart3,
-  Shield, Briefcase
+  Shield, Briefcase, FileText
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -40,6 +40,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const isDeptHead = isDepartmentHead(user);
   const isStaff = !isTrustee && !isCEO && !isDeptHead;
 
+  const normalizedDepartmentId = user?.departmentId || department?._id || '';
+
   useEffect(() => {
     setLoading(true);
     const fetches: Promise<any>[] = [
@@ -67,7 +69,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   }, [user?._id, refreshKey]);
 
   const stats = analytics?.stats || {};
-  const normalizedDepartmentId = user?.departmentId || department?._id || '';
 
   // ─── Role label banner ───────────────────────────────────────────────────
   const roleConfig = isTrustee
@@ -292,16 +293,34 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Department Workload</h3>
-                <p className="text-xs text-slate-500">Live task volume across all operational divisions</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {isDeptHead ? `${department?.name?.en || 'Department'} Workload Summary` : 'Department Workload Overview'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isDeptHead ? `Live task volume for ${department?.name?.en || 'your department'}` : 'Live task volume across all operational divisions'}
+                </p>
               </div>
-              <button type="button" onClick={() => onNavigateTab('departments')}
+              <button type="button" onClick={() => onNavigateTab(isDeptHead ? 'reports' : 'departments')}
                 className="text-xs text-red-700 dark:text-red-400 font-semibold hover:underline">
-                View Depts →
+                {isDeptHead ? 'Task Reports →' : 'View Depts →'}
               </button>
             </div>
             <div className="space-y-3">
-              {analytics.departmentWorkload.map((dw: any) => (
+              {analytics.departmentWorkload
+                .filter((dw: any) => {
+                  if (!isDeptHead) return true;
+                  const userDeptCode = department?.code?.toUpperCase();
+                  const userDeptId = normalizedDepartmentId;
+                  const dwCode = dw.code?.toUpperCase();
+                  return (
+                    dw.departmentId === userDeptId ||
+                    (userDeptCode && dwCode === userDeptCode) ||
+                    (department?._id && dw.departmentId === department._id) ||
+                    (userDeptCode === 'FIN' && dwCode === 'FINANCE') ||
+                    (userDeptCode === 'FINANCE' && dwCode === 'FIN')
+                  );
+                })
+                .map((dw: any) => (
                 <div key={dw.departmentId} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
@@ -382,7 +401,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-            {isStaff ? 'My Recent Tasks' : 'Recent Work Directives'}
+            {isStaff ? 'My Recent Tasks' : isDeptHead ? `${department?.name?.en || 'Department'} Recent Tasks` : 'Recent Work Directives'}
           </h2>
           <button type="button" onClick={() => onNavigateTab(isStaff ? 'my-tasks' : 'all-tasks')}
             className="text-xs text-red-700 dark:text-red-400 font-semibold hover:underline">
