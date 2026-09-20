@@ -249,3 +249,130 @@ export function downloadApprovalPdf(approval: any) {
 
   printHtml(html, `approval-${approval._id}.pdf`);
 }
+
+/** Generate and print Tasks PDF Report (Supports Ongoing, Completed, and All Tasks) */
+export function downloadTasksPdfReport({
+  reportTitle,
+  scopeName,
+  departmentName,
+  filterTypeName = 'Ongoing Tasks',
+  tasks,
+  generatedBy,
+}: {
+  reportTitle: string;
+  scopeName: string;
+  departmentName?: string;
+  filterTypeName?: string;
+  tasks: any[];
+  generatedBy: any;
+}) {
+  const now = new Date().toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' });
+
+  const tasksHtml = tasks.length > 0 ? tasks.map((t: any, index: number) => {
+    const assignees = (t.assignees || []).map((a: any) => a?.name?.en || a?.name || 'Unassigned').join(', ') || 'Unassigned';
+    const requesterName = t.requester?.name?.en || t.creator?.name?.en || 'System / Direct';
+    const sourceDept = t.sourceDepartment?.name?.en || t.sourceDepartment?.code || '—';
+    const targetDept = t.targetDepartment?.name?.en || t.department?.name?.en || t.department?.code || '—';
+    const checklistDone = t.checklist?.filter((c: any) => c.completed).length || 0;
+    const checklistTotal = t.checklist?.length || 0;
+
+    const priorityColor = t.priority === 'URGENT' ? '#dc2626' : t.priority === 'HIGH' ? '#ea580c' : t.priority === 'MEDIUM' ? '#2563eb' : '#16a34a';
+
+    return `
+      <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 14px; page-break-inside: avoid; background: #ffffff;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+          <div>
+            <span style="font-family: monospace; font-weight: 700; color: #7f1d1d; font-size: 11px;">#${index + 1} • ${t.taskId || 'TSK-000'}</span>
+            <h3 style="margin: 4px 0 2px; font-size: 14px; color: #0f172a; font-weight: 700;">${t.title}</h3>
+          </div>
+          <div style="text-align: right;">
+            <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; color: white; background: ${priorityColor}; text-transform: uppercase;">${t.priority || 'MEDIUM'}</span>
+            <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Status: <strong style="color:${t.status === 'COMPLETED' ? '#059669' : '#0f172a'}">${(t.status || 'IN_PROGRESS').replace(/_/g, ' ')}</strong></div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #f1f5f9; padding: 8px 12px; border-radius: 6px; font-size: 11px; margin-bottom: 10px;">
+          <div>
+            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block;">Source Dept & Requester</span>
+            <strong style="color: #334155;">${sourceDept}</strong> (${requesterName})
+          </div>
+          <div>
+            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block;">Target Dept & Assigned Staff</span>
+            <strong style="color: #0f172a;">${targetDept}</strong> (${assignees})
+          </div>
+          <div>
+            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block;">Due Date & Progress</span>
+            <strong style="color: #b91c1c;">${t.dueDate || '—'}</strong> | Progress: <strong>${t.progress ?? 0}%</strong>
+          </div>
+        </div>
+
+        ${t.description ? `<div style="font-size: 11px; color: #334155; line-height: 1.5; margin-bottom: 8px;"><strong>Description & Scope:</strong> ${t.description}</div>` : ''}
+
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; border-top: 1px dashed #e2e8f0; padding-top: 6px; margin-top: 6px;">
+          <span>Checklist Progress: <strong>${checklistDone}/${checklistTotal} items completed</strong></span>
+          <span>Attachments: <strong>${t.attachments?.length || 0} file(s)</strong></span>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div style="padding: 30px; text-align: center; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 8px;">No tasks found matching this criteria.</div>';
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${reportTitle}</title>
+  <style>${STYLES}</style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo-box">LWM</div>
+    <div>
+      <div class="org-name">Liberation War Museum (মুক্তিযুদ্ধ জাদুঘর)</div>
+      <div class="org-sub">Plot 1/1, Sher-e-Bangla Nagar, Agargaon, Dhaka-1207 • Official Task PDF Report</div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; border-radius: 8px;">
+    <div>
+      <h2 style="font-size: 18px; color: #7f1d1d;">${reportTitle}</h2>
+      <div style="font-size: 11px; color: #475569; margin-top: 4px;">
+        Report Scope: <strong>${scopeName}</strong> ${departmentName ? `• Department: <strong>${departmentName}</strong>` : ''} • Category: <strong>${filterTypeName}</strong>
+      </div>
+    </div>
+    <div style="text-align: right; font-size: 10px; color: #64748b;">
+      <div>Generated By: <strong>${generatedBy?.name?.en || generatedBy?.name || 'Authorized User'}</strong></div>
+      <div>Designation/Role: <strong>${generatedBy?.designation?.en || generatedBy?.role || 'Authority'}</strong></div>
+      <div>Generated On: <strong>${now}</strong></div>
+      <div style="margin-top: 4px; font-weight: 700; color: #065f46;">Total Included Tasks: ${tasks.length}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">${filterTypeName.toUpperCase()} PARTICULARS & DETAILS (${tasks.length})</div>
+    ${tasksHtml}
+  </div>
+
+  <div class="signature-row" style="margin-top: 40px;">
+    <div class="signature-box">
+      <div class="signature-name">${generatedBy?.name?.en || 'Report Generator'}</div>
+      <div class="signature-role">${generatedBy?.designation?.en || generatedBy?.role || 'Supervisory Authority'}</div>
+      <div class="signature-date">Date: ${now.split(',')[0]}</div>
+    </div>
+    <div class="signature-box">
+      <div class="signature-name">Executive Verification</div>
+      <div class="signature-role">Liberation War Museum Directorate</div>
+      <div class="signature-date">Official Seal / Signature</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>Liberation War Museum OMS — Confidential Institutional Task Report</span>
+    <span>Generated: ${now}</span>
+  </div>
+</body>
+</html>`;
+
+  printHtml(html, `Tasks_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+export const downloadOngoingTasksPdfReport = downloadTasksPdfReport;
