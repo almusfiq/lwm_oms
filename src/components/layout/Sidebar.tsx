@@ -174,8 +174,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <NavBtn tab="performance" icon={TrendingUp} label="Performance Scores" />
           )}
 
-          {(isTrustee || isCEO) && (
-            <NavBtn tab="reports" icon={BarChart3} label="Reports & Matrix" />
+          {!isStaff && (
+            <NavBtn tab="reports" icon={BarChart3} label={isDeptHead ? 'Dept Task Reports' : 'Reports & Matrix'} />
           )}
         </div>
 
