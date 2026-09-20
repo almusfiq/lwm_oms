@@ -5,7 +5,7 @@ import { UserAvatar } from '../common/UserAvatar';
 import { 
   X, Camera, Lock, KeyRound, CheckCircle2, AlertCircle, 
   Loader2, Phone, Mail, User as UserIcon, Shield, Building2,
-  RefreshCw, LogOut, Eye, EyeOff
+  LogOut, Eye, EyeOff
 } from 'lucide-react';
 
 interface ProfileDrawerProps {
@@ -14,7 +14,7 @@ interface ProfileDrawerProps {
 }
 
 export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose }) => {
-  const { user, department, refreshMe, logout, switchUser } = useAuth();
+  const { user, department, refreshMe, logout } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Picture upload state
@@ -36,10 +36,6 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
   const [updatingPass, setUpdatingPass] = useState(false);
   const [passError, setPassError] = useState('');
   const [passSuccess, setPassSuccess] = useState('');
-
-  // Demo users state
-  const [demoUsers, setDemoUsers] = useState<any[]>([]);
-  const [loadingDemo, setLoadingDemo] = useState(false);
 
   if (!isOpen || !user) return null;
 
@@ -388,62 +384,17 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose })
             </form>
           </div>
 
-          {/* ===== 4. DEMO PERSONA SWITCHER & LOGOUT ===== */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                Switch User Persona
-              </h3>
-              <button
-                type="button"
-                onClick={handleLoadDemoUsers}
-                className="text-[11px] text-red-700 dark:text-red-400 font-semibold hover:underline"
-              >
-                {demoUsers.length > 0 ? 'Loaded' : 'Load Personas'}
-              </button>
-            </div>
-
-            {demoUsers.length > 0 && (
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {demoUsers.map(u => (
-                  <button
-                    key={u._id}
-                    type="button"
-                    onClick={() => {
-                      switchUser(u._id);
-                      onClose();
-                    }}
-                    className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-colors ${
-                      u._id === user._id
-                        ? 'bg-red-100 text-red-900 font-semibold dark:bg-red-950/60 dark:text-red-200'
-                        : 'bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <UserAvatar name={u.name} photo={u.photo} role={u.role} size="sm" />
-                      <div className="min-w-0">
-                        <div className="font-semibold truncate">{u.name.en}</div>
-                        <div className="text-[10px] text-slate-500 truncate">{u.designation.en}</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
-                      {u.role}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-
+          {/* ===== 4. LOGOUT SESSION ===== */}
+          <div className="pt-2">
             <button
               type="button"
               onClick={() => {
                 onClose();
                 logout();
               }}
-              className="w-full py-2 rounded-xl text-xs font-semibold bg-red-50 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/40 border border-red-200 flex items-center justify-center gap-2 transition-colors mt-3"
+              className="w-full py-3 rounded-2xl text-xs sm:text-sm font-bold bg-red-50 text-red-800 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/40 border border-red-200 flex items-center justify-center gap-2 transition-all shadow-xs transform hover:-translate-y-0.5"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 text-red-700 dark:text-red-400" />
               <span>Log Out of Session</span>
             </button>
           </div>
