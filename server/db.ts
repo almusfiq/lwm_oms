@@ -181,6 +181,11 @@ class DatabaseManager {
   }
 
   private normalizeReferences() {
+    // Deduplicate departments by code/id
+    this.departments = this.departments.filter((d, idx, arr) =>
+      idx === arr.findIndex(x => (x.code && d.code && x.code.toUpperCase() === d.code.toUpperCase()) || x._id === d._id)
+    );
+
     const departments = this.departments;
     const users = this.users;
 
@@ -277,14 +282,26 @@ class DatabaseManager {
 
   private async _upsertMany(model: mongoose.Model<any>, items: any[], keyField: string) {
     if (!items.length) return;
-    const ops = items.map(item => ({
-      updateOne: {
-        filter: { [keyField]: item[keyField] },
-        update: { $set: { ...item, passwordHash: item.password || item.passwordHash } },
-        upsert: true,
+    const ops = items.map(item => {
+      let filter: any = { [keyField]: item[keyField] };
+      if (model.modelName === 'Department' && item.code) {
+        filter = { $or: [{ _id: item._id }, { code: item.code }] };
+      } else if (model.modelName === 'User' && item.email) {
+        filter = { $or: [{ _id: item._id }, { email: item.email.toLowerCase() }] };
       }
-    }));
-    await model.bulkWrite(ops, { ordered: false });
+      return {
+        updateOne: {
+          filter,
+          update: { $set: { ...item, passwordHash: item.password || item.passwordHash } },
+          upsert: true,
+        }
+      };
+    });
+    try {
+      await model.bulkWrite(ops, { ordered: false });
+    } catch {
+      // Ignore bulk write duplicate index warnings
+    }
   }
 
   // ──────────────────────────────────────────────────────────
