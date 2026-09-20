@@ -159,6 +159,7 @@ class DatabaseManager {
         DocModel.find().lean(),
       ]);
 
+
     this.users         = users.map(d => toPlain<User>(d));
     this.departments   = depts.map(d => toPlain<Department>(d));
     this.tasks         = tasks.map(d => toPlain<Task>(d));
@@ -171,6 +172,8 @@ class DatabaseManager {
     this.events        = events.map(d => toPlain<EventItem>(d));
     this.announcements = anns.map(d => toPlain<Announcement>(d));
     this.documents     = docs.map(d => toPlain<OfficeDocument>(d));
+
+
 
     this.normalizeReferences();
 
