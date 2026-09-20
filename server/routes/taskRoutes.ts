@@ -53,12 +53,14 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   // - Staff: Can ONLY see tasks assigned to, created by, requested by, or collaborating with them.
   if (req.user) {
     const role = getEffectiveRole(req.user);
+    const isSuperAdmin = role === 'SUPER_ADMIN';
     const isTrustee = role === 'TRUSTEE';
     const isCEO = role === 'CEO';
     const isDeptHead = role === 'DEPT_HEAD';
     const userDeptId = req.user.departmentId;
 
-    if (!isTrustee && !isCEO) {
+    if (!isSuperAdmin && !isTrustee && !isCEO) {
+
       if (isDeptHead && userDeptId) {
         const resolvedDeptId = resolveDepartmentId(userDeptId, db.departments) || userDeptId;
         filtered = filtered.filter(t => 
@@ -804,3 +806,39 @@ taskRoutes.post('/:id/attachments', requireAuth, (req: AuthenticatedRequest, res
   db.save();
   res.status(201).json({ success: true, data: populateTask(task) });
 });
+
+// DELETE /api/tasks/:id (Super Admin, CEO, or Task Creator)
+taskRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const callerRole = getEffectiveRole(req.user!);
+  const isSuperAdmin = callerRole === 'SUPER_ADMIN';
+  const isCEO = callerRole === 'CEO';
+
+  const taskIdx = db.tasks.findIndex(t => t._id === req.params.id || t.taskId === req.params.id);
+  if (taskIdx === -1) {
+    res.status(404).json({ success: false, message: 'Task not found' });
+    return;
+  }
+
+  const task = db.tasks[taskIdx];
+  const isCreator = task.createdBy === req.user!._id;
+
+  if (!isSuperAdmin && !isCEO && !isCreator) {
+    res.status(403).json({ success: false, message: 'Only Super Admin, CEO, or task creator can delete this task.' });
+    return;
+  }
+
+  db.tasks.splice(taskIdx, 1);
+  db.activityLogs.unshift({
+    _id: db.generateId('act'),
+    actorId: req.user!._id,
+    action: 'TASK_DELETED',
+    resourceType: 'TASK',
+    resourceId: task._id,
+    metadata: { title: task.title, taskId: task.taskId },
+    createdAt: new Date().toISOString()
+  });
+
+  db.save();
+  res.json({ success: true, message: `Task ${task.taskId} deleted successfully.` });
+});
+
