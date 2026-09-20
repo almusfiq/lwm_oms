@@ -82,7 +82,12 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
 
   // 5. Department filters
   if (department && typeof department === 'string') {
-    filtered = filtered.filter(t => t.departmentId === resolveDepartmentId(department, db.departments) || t.targetDepartmentId === resolveDepartmentId(department, db.departments));
+    const resolvedId = resolveDepartmentId(department, db.departments);
+    filtered = filtered.filter(t => 
+      t.departmentId === resolvedId || 
+      t.targetDepartmentId === resolvedId ||
+      t.sourceDepartmentId === resolvedId
+    );
   }
   if (sourceDepartment && typeof sourceDepartment === 'string') {
     filtered = filtered.filter(t => t.sourceDepartmentId === resolveDepartmentId(sourceDepartment, db.departments));
