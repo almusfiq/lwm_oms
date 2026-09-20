@@ -7,7 +7,7 @@ import { PriorityBadge } from '../common/PriorityBadge';
 import { UserAvatar } from '../common/UserAvatar';
 import { 
   X, Check, Plus, Paperclip, Send, Clock, Calendar, 
-  Building, Copy, CheckCircle2, ChevronRight, FileText, ArrowRight, ShieldCheck
+  Building, Copy, CheckCircle2, ChevronRight, FileText, ArrowRight, ShieldCheck, Trash2
 } from 'lucide-react';
 import { SubmitWorkModal } from './SubmitWorkModal';
 
@@ -159,6 +159,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
+  const handleDeleteTask = async () => {
+    if (!task) return;
+    if (!confirm(`Are you sure you want to permanently delete directive ${task.taskId} ("${task.title}")? This action cannot be undone.`)) return;
+
+    try {
+      await api.tasks.delete(task._id);
+      alert('Task deleted successfully.');
+      onTaskUpdated?.();
+      onClose();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete task');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
       <div 
@@ -183,13 +197,27 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             {task && <PriorityBadge priority={task.priority} />}
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {task && (user?.role === 'SUPER_ADMIN' || user?.role === 'CEO') && (
+              <button
+                type="button"
+                onClick={handleDeleteTask}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900 transition-colors border border-red-200/60 dark:border-red-800"
+                title="Permanently Delete Directive (Super Admin / CEO)"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {loading ? (
