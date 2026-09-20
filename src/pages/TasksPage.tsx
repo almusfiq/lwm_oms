@@ -59,6 +59,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
         limit: view === 'board' ? 60 : 20,
         status: status || undefined,
         priority: priority || undefined,
+        department: departmentId || undefined,
         departmentId: departmentId || undefined,
         overdueOnly: overdueOnly || undefined,
         search: search || undefined
