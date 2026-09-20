@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { db, resolveDepartmentId } from '../db';
-import { requireAuth, AuthenticatedRequest, sanitizeUser } from '../auth';
+import { requireAuth, AuthenticatedRequest, sanitizeUser, getEffectiveRole } from '../auth';
 import { Task, TaskComment, TaskAttachment, TaskChecklistItem } from '../types';
 
 export const taskRoutes = Router();
@@ -47,15 +47,47 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const now = new Date().toISOString().split('T')[0];
   let filtered = [...db.tasks];
 
-  // 1. My tasks filter
-  if (myTasks === 'true' && req.user) {
-    const uid = req.user._id;
-    filtered = filtered.filter(t => 
-      t.assignedTo.includes(uid) || 
-      t.requestedBy === uid || 
-      t.createdBy === uid || 
-      t.collaborators.includes(uid)
-    );
+  // 1. Role-based baseline visibility filtering:
+  // - Trustee & CEO: Can see all tasks across the museum.
+  // - Dept Head: Can ONLY see tasks affiliated with their department (departmentId, targetDepartmentId, sourceDepartmentId).
+  // - Staff: Can ONLY see tasks assigned to, created by, requested by, or collaborating with them.
+  if (req.user) {
+    const role = getEffectiveRole(req.user);
+    const isTrustee = role === 'TRUSTEE';
+    const isCEO = role === 'CEO';
+    const isDeptHead = role === 'DEPT_HEAD';
+    const userDeptId = req.user.departmentId;
+
+    if (!isTrustee && !isCEO) {
+      if (isDeptHead && userDeptId) {
+        const resolvedDeptId = resolveDepartmentId(userDeptId, db.departments) || userDeptId;
+        filtered = filtered.filter(t => 
+          t.departmentId === resolvedDeptId || 
+          t.targetDepartmentId === resolvedDeptId || 
+          t.sourceDepartmentId === resolvedDeptId ||
+          t.assignedTo.includes(req.user!._id) ||
+          t.createdBy === req.user!._id ||
+          t.requestedBy === req.user!._id ||
+          t.collaborators.includes(req.user!._id)
+        );
+      } else {
+        const uid = req.user._id;
+        filtered = filtered.filter(t => 
+          t.assignedTo.includes(uid) || 
+          t.requestedBy === uid || 
+          t.createdBy === uid || 
+          t.collaborators.includes(uid)
+        );
+      }
+    } else if (myTasks === 'true') {
+      const uid = req.user._id;
+      filtered = filtered.filter(t => 
+        t.assignedTo.includes(uid) || 
+        t.requestedBy === uid || 
+        t.createdBy === uid || 
+        t.collaborators.includes(uid)
+      );
+    }
   }
 
   // 2. Search
