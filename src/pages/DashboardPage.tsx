@@ -35,10 +35,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [loading, setLoading] = useState(true);
 
   const role = getUserRole(user);
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const isTrustee = role === 'TRUSTEE';
   const isCEO = role === 'CEO';
   const isDeptHead = isDepartmentHead(user);
-  const isStaff = !isTrustee && !isCEO && !isDeptHead;
+  const isStaff = !isSuperAdmin && !isTrustee && !isCEO && !isDeptHead;
 
   const normalizedDepartmentId = user?.departmentId || department?._id || '';
 
@@ -71,7 +72,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const stats = analytics?.stats || {};
 
   // ─── Role label banner ───────────────────────────────────────────────────
-  const roleConfig = isTrustee
+  const roleConfig = isSuperAdmin
+    ? { label: 'Super Admin Platform Governance (Root)', icon: UserCog, color: 'from-purple-950 via-slate-900 to-indigo-950' }
+    : isTrustee
     ? { label: 'Trustee Board View', icon: Shield, color: 'from-red-900 via-red-800 to-slate-900' }
     : isCEO
     ? { label: 'CEO Command View', icon: UserCog, color: 'from-slate-900 via-blue-950 to-slate-900' }
