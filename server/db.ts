@@ -262,46 +262,78 @@ class DatabaseManager {
 
     try {
       await Promise.all([
-        this._upsertMany(UserModel,     this.users,         '_id'),
-        this._upsertMany(DeptModel,     this.departments,   '_id'),
-        this._upsertMany(TaskModel,     this.tasks,         '_id'),
-        this._upsertMany(ReqModel,      this.taskRequests,  '_id'),
-        this._upsertMany(ProjectModel,  this.projects,      '_id'),
-        this._upsertMany(CommentModel,  this.comments,      '_id'),
-        this._upsertMany(NotiModel,     this.notifications, '_id'),
-        this._upsertMany(LogModel,      this.activityLogs,  '_id'),
-        this._upsertMany(ApprovalModel, this.approvals,     '_id'),
-        this._upsertMany(EventModel,    this.events,        '_id'),
-        this._upsertMany(AnnModel,      this.announcements, '_id'),
-        this._upsertMany(DocModel,      this.documents,     '_id'),
+        this._syncCollection(UserModel,     this.users,         '_id'),
+        this._syncCollection(DeptModel,      this.departments,   '_id'),
+        this._syncCollection(TaskModel,      this.tasks,         '_id'),
+        this._syncCollection(ReqModel,       this.taskRequests,  '_id'),
+        this._syncCollection(ProjectModel,   this.projects,      '_id'),
+        this._syncCollection(CommentModel,   this.comments,      '_id'),
+        this._syncCollection(NotiModel,      this.notifications, '_id'),
+        this._syncCollection(LogModel,       this.activityLogs,  '_id'),
+        this._syncCollection(ApprovalModel,  this.approvals,     '_id'),
+        this._syncCollection(EventModel,     this.events,        '_id'),
+        this._syncCollection(AnnModel,      this.announcements, '_id'),
+        this._syncCollection(DocModel,      this.documents,     '_id'),
       ]);
     } catch (err) {
       console.error('[DB] Save error:', err);
     }
   }
 
-  private async _upsertMany(model: mongoose.Model<any>, items: any[], keyField: string) {
-    if (!items.length) return;
-    const ops = items.map(item => {
-      let filter: any = { [keyField]: item[keyField] };
-      if (model.modelName === 'Department' && item.code) {
-        filter = { $or: [{ _id: item._id }, { code: item.code }] };
-      } else if (model.modelName === 'User' && item.email) {
-        filter = { $or: [{ _id: item._id }, { email: item.email.toLowerCase() }] };
-      }
-      return {
-        updateOne: {
-          filter,
-          update: { $set: { ...item, passwordHash: item.password || item.passwordHash } },
-          upsert: true,
-        }
-      };
-    });
-    try {
-      await model.bulkWrite(ops, { ordered: false });
-    } catch {
-      // Ignore bulk write duplicate index warnings
+  private async _syncCollection(model: mongoose.Model<any>, items: any[], keyField: string) {
+    // 1. Delete documents from MongoDB Atlas that are no longer present in memory
+    const currentIds = items.map(item => item[keyField]).filter(Boolean);
+    if (currentIds.length > 0) {
+      await model.deleteMany({ [keyField]: { $nin: currentIds } }).catch(() => {});
     }
+
+    // 2. Upsert items in memory to MongoDB Atlas
+    if (items.length > 0) {
+      const ops = items.map(item => {
+        let filter: any = { [keyField]: item[keyField] };
+        if (model.modelName === 'Department' && item.code) {
+          filter = { $or: [{ _id: item._id }, { code: item.code }] };
+        } else if (model.modelName === 'User' && item.email) {
+          filter = { $or: [{ _id: item._id }, { email: item.email.toLowerCase() }] };
+        }
+        return {
+          updateOne: {
+            filter,
+            update: { $set: { ...item, passwordHash: item.password || item.passwordHash } },
+            upsert: true,
+          }
+        };
+      });
+      try {
+        await model.bulkWrite(ops, { ordered: false });
+      } catch {
+        // Ignore duplicate key warnings on bulk write
+      }
+    }
+  }
+
+  public async deleteTaskFromDb(taskId: string) {
+    if (this.isConnected) {
+      await TaskModel.deleteMany({ $or: [{ _id: taskId }, { taskId: taskId }] }).catch(() => {});
+    }
+    this.tasks = this.tasks.filter(t => t._id !== taskId && t.taskId !== taskId);
+    await this.save();
+  }
+
+  public async deleteUserFromDb(userId: string) {
+    if (this.isConnected) {
+      await UserModel.deleteMany({ _id: userId }).catch(() => {});
+    }
+    this.users = this.users.filter(u => u._id !== userId);
+    await this.save();
+  }
+
+  public async deleteDepartmentFromDb(deptId: string) {
+    if (this.isConnected) {
+      await DeptModel.deleteMany({ _id: deptId }).catch(() => {});
+    }
+    this.departments = this.departments.filter(d => d._id !== deptId);
+    await this.save();
   }
 
   // ──────────────────────────────────────────────────────────
