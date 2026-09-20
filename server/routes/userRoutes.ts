@@ -274,7 +274,7 @@ userRoutes.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Res
 });
 
 // DELETE /api/users/:id (Delete user - Super Admin can delete anyone!)
-userRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+userRoutes.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const viewer = req.user!;
   const viewerRole = getEffectiveRole(viewer);
   const isSuperAdmin = viewerRole === 'SUPER_ADMIN';
@@ -297,7 +297,6 @@ userRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response
     return;
   }
 
-  db.users.splice(userIdx, 1);
   db.activityLogs.unshift({
     _id: db.generateId('act'),
     actorId: viewer._id,
@@ -307,9 +306,8 @@ userRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response
     metadata: { name: target.name.en, email: target.email },
     createdAt: new Date().toISOString()
   });
-  db.save();
-
-  res.json({ success: true, message: `User ${target.name.en} removed successfully.` });
+  await db.deleteUserFromDb(target._id);
+  res.json({ success: true, message: 'User account deleted successfully.' });
 });
 
 
