@@ -16,6 +16,16 @@ userRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
     list = list.filter(u => u.isActive);
   }
 
+  if (req.user) {
+    const callerRole = getEffectiveRole(req.user);
+    const isTrustee = callerRole === 'TRUSTEE';
+    const isCEO = callerRole === 'CEO';
+    if (!isTrustee && !isCEO && req.user.departmentId) {
+      const callerDeptId = resolveDepartmentId(req.user.departmentId, db.departments) || req.user.departmentId;
+      list = list.filter(u => u.departmentId === callerDeptId);
+    }
+  }
+
   if (departmentId && typeof departmentId === 'string') {
     list = list.filter(u => u.departmentId === resolveDepartmentId(departmentId, db.departments));
   }
