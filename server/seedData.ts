@@ -91,8 +91,22 @@ export async function seedDatabase(force = false) {
     }
   ];
 
-  // 2. Users
-  const usersData: User[] = [];
+  // 2.0 Super Admin
+  usersData.push({
+    _id: 'usr_super_admin',
+    employeeId: 'SUPER-ADMIN',
+    uniqueId: 'LWM-SA001',
+    name: { en: 'Super Admin', bn: 'সুপার অ্যাডমিন' },
+    email: 'superadmin@lwmbd.org',
+    password: defaultPassword,
+    designation: { en: 'System Super Administrator', bn: 'সিস্টেম সুপার প্রশাসক' },
+    role: 'SUPER_ADMIN',
+    tier: 'SUPER_ADMIN',
+    isActive: true,
+    phone: '+880 1700-000000',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z'
+  });
 
   // 2.1 Board of Trustees
   const trusteesList = [
@@ -958,4 +972,36 @@ export async function seedDatabase(force = false) {
   });
 
   console.log(`[Seed] Successfully seeded ${usersData.length} users, ${departmentsData.length} departments, ${tasksData.length} tasks, ${taskRequestsData.length} requests, ${projectsData.length} projects into MongoDB Atlas!`);
+  await ensureSuperAdminUser();
+}
+
+export async function ensureSuperAdminUser() {
+  const defaultPassword = await bcrypt.hash('LWM@2026', 10);
+  let superAdmin = db.users.find(u => u._id === 'usr_super_admin' || u.email === 'superadmin@lwmbd.org' || u.employeeId === 'SUPER-ADMIN');
+
+  if (!superAdmin) {
+    console.log('[Seed] Inserting Super Admin user (superadmin@lwmbd.org)...');
+    superAdmin = {
+      _id: 'usr_super_admin',
+      employeeId: 'SUPER-ADMIN',
+      uniqueId: 'LWM-SA001',
+      name: { en: 'Super Admin', bn: 'সুপার অ্যাডমিন' },
+      email: 'superadmin@lwmbd.org',
+      password: defaultPassword,
+      designation: { en: 'System Super Administrator', bn: 'সিস্টেম সুপার প্রশাসক' },
+      role: 'SUPER_ADMIN',
+      tier: 'SUPER_ADMIN',
+      isActive: true,
+      phone: '+880 1700-000000',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    db.users.push(superAdmin);
+    await db.save();
+  } else {
+    superAdmin.role = 'SUPER_ADMIN';
+    superAdmin.tier = 'SUPER_ADMIN';
+    superAdmin.password = defaultPassword;
+    await db.save();
+  }
 }
