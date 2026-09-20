@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { User, Department } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { Modal } from '../components/common/Modal';
 import { 
   Users, Search, Mail, Phone, Calendar, 
-  Building2, CheckSquare, GitPullRequest, ArrowRight 
+  Building2, CheckSquare, GitPullRequest, ArrowRight,
+  Plus, Edit, Trash2, Key, ShieldAlert
 } from 'lucide-react';
 
 interface EmployeesPageProps {
@@ -17,6 +19,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
   onOpenTaskDetail,
   onRequestWorkFromUser
 }) => {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,9 +28,30 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userProfileData, setUserProfileData] = useState<{ assignedTasks: any[]; managedTasks: any[] } | null>(null);
 
-  useEffect(() => {
+  // Super Admin / Management Modal States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [formData, setFormData] = useState({
+    nameEn: '',
+    nameBn: '',
+    designationEn: '',
+    designationBn: '',
+    email: '',
+    password: '',
+    role: 'OFFICER',
+    departmentId: '',
+    employeeId: '',
+    phone: ''
+  });
+  const [saving, setSaving] = useState(false);
+
+  const canManage = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'CEO';
+
+  const loadData = () => {
+    setLoading(true);
     Promise.all([
-      api.users.list({ activeOnly: true }),
+      api.users.list({ activeOnly: false }),
       api.departments.list()
     ])
       .then(([userData, deptData]) => {
@@ -36,6 +60,10 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const handleSelectUser = async (u: User) => {
@@ -48,6 +76,95 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
       });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleOpenCreate = () => {
+    setFormData({
+      nameEn: '',
+      nameBn: '',
+      designationEn: '',
+      designationBn: '',
+      email: '',
+      password: '',
+      role: 'OFFICER',
+      departmentId: departments[0]?._id || '',
+      employeeId: `LWM-${Math.floor(1000 + Math.random() * 9000)}`,
+      phone: ''
+    });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleOpenEdit = (u: User) => {
+    setEditingUser(u);
+    setFormData({
+      nameEn: u.name.en,
+      nameBn: u.name.bn,
+      designationEn: u.designation.en,
+      designationBn: u.designation.bn,
+      email: u.email,
+      password: '',
+      role: u.role,
+      departmentId: u.departmentId || u.department?._id || '',
+      employeeId: u.employeeId,
+      phone: u.phone || ''
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload: any = {
+        name: { en: formData.nameEn, bn: formData.nameBn },
+        designation: { en: formData.designationEn, bn: formData.designationBn },
+        email: formData.email,
+        role: formData.role,
+        departmentId: formData.departmentId || null,
+        employeeId: formData.employeeId,
+        phone: formData.phone
+      };
+
+      if (formData.password) {
+        payload.password = formData.password;
+      }
+
+      if (isEditModalOpen && editingUser) {
+        await api.users.update(editingUser._id, payload);
+        alert('User updated successfully!');
+      } else {
+        if (!formData.password) {
+          alert('Password is required for new user.');
+          setSaving(false);
+          return;
+        }
+        await api.users.create(payload);
+        alert('New user created successfully!');
+      }
+
+      setIsEditModalOpen(false);
+      setIsCreateModalOpen(false);
+      setEditingUser(null);
+      setSelectedUser(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to save user');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteUser = async (u: User) => {
+    if (!confirm(`Are you sure you want to permanently delete personnel "${u.name.en}" (${u.employeeId})? This will unassign tasks and cannot be undone.`)) return;
+
+    try {
+      await api.users.delete(u._id);
+      alert('Personnel deleted successfully.');
+      setSelectedUser(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete user');
     }
   };
 
@@ -81,9 +198,22 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
           </p>
         </div>
 
-        <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-          {filteredUsers.length} Active Personnel
-        </span>
+        <div className="flex items-center gap-3">
+          {canManage && (
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs flex items-center gap-1.5 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New Personnel</span>
+            </button>
+          )}
+
+          <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+            {filteredUsers.length} Active Personnel
+          </span>
+        </div>
       </div>
 
       {/* Filter / Search Bar */}
@@ -236,8 +366,55 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
               </div>
             </div>
 
-            {/* Action to Request Work Directly from this Colleague */}
-            {onRequestWorkFromUser && (
+            {/* Management Actions for Super Admin / CEO */}
+            {canManage && (
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const u = selectedUser;
+                    setSelectedUser(null);
+                    handleDeleteUser(u);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 hover:bg-red-200 border border-red-200 dark:border-red-900/50 flex items-center gap-1.5 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Account</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const u = selectedUser;
+                      setSelectedUser(null);
+                      handleOpenEdit(u);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition-colors"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Edit Personnel Info / Role / Password</span>
+                  </button>
+
+                  {onRequestWorkFromUser && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const u = selectedUser;
+                        setSelectedUser(null);
+                        onRequestWorkFromUser(u);
+                      }}
+                      className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs flex items-center gap-1.5"
+                    >
+                      <GitPullRequest className="w-3.5 h-3.5" />
+                      <span>Request Work</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!canManage && onRequestWorkFromUser && (
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                 <button
                   type="button"
@@ -255,6 +432,175 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
             )}
 
           </div>
+        </Modal>
+      )}
+
+      {/* Create / Edit Personnel Modal */}
+      {(isCreateModalOpen || isEditModalOpen) && (
+        <Modal
+          isOpen={isCreateModalOpen || isEditModalOpen}
+          onClose={() => {
+            setIsCreateModalOpen(false);
+            setIsEditModalOpen(false);
+            setEditingUser(null);
+          }}
+          title={isEditModalOpen ? `Edit Personnel: ${editingUser?.name.en}` : 'Add New Personnel'}
+          subtitle={isEditModalOpen ? `Modify account details, role, department, or reset password` : 'Register a new employee into Liberated Women Museum OMS'}
+          maxWidth="2xl"
+        >
+          <form onSubmit={handleSaveUser} className="space-y-4 text-xs sm:text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Name (English) *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.nameEn}
+                  onChange={e => setFormData({ ...formData, nameEn: e.target.value })}
+                  placeholder="e.g. Dr. Sharmin Akter"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Name (Bangla) *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.nameBn}
+                  onChange={e => setFormData({ ...formData, nameBn: e.target.value })}
+                  placeholder="e.g. ড. শারমিন আক্তার"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Designation (English) *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.designationEn}
+                  onChange={e => setFormData({ ...formData, designationEn: e.target.value })}
+                  placeholder="e.g. Senior Curator"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Designation (Bangla) *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.designationBn}
+                  onChange={e => setFormData({ ...formData, designationBn: e.target.value })}
+                  placeholder="e.g. সিনিয়র কিউরেটর"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="user@lwmbd.org"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  {isEditModalOpen ? 'New Password (leave empty to keep current)' : 'Password *'}
+                </label>
+                <input
+                  type="password"
+                  required={!isEditModalOpen}
+                  value={formData.password}
+                  onChange={e => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">System Role *</label>
+                <select
+                  value={formData.role}
+                  onChange={e => setFormData({ ...formData, role: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                >
+                  <option value="SUPER_ADMIN">SUPER ADMIN (Full Platform Control)</option>
+                  <option value="TRUSTEE">TRUSTEE (Board Governance)</option>
+                  <option value="CEO">CEO / DIRECTOR GENERAL (Executive Head)</option>
+                  <option value="DEPT_HEAD">DEPARTMENT HEAD (Unit Leader)</option>
+                  <option value="OFFICER">OFFICER (Exec / Curator)</option>
+                  <option value="ASSISTANT_OFFICER">ASSISTANT OFFICER</option>
+                  <option value="STAFF">STAFF (Support)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Department</label>
+                <select
+                  value={formData.departmentId}
+                  onChange={e => setFormData({ ...formData, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                >
+                  <option value="">Executive Board / Independent</option>
+                  {departments.map(d => (
+                    <option key={d._id} value={d._id}>
+                      {d.name.en} ({d.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Employee Code ID *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.employeeId}
+                  onChange={e => setFormData({ ...formData, employeeId: e.target.value })}
+                  placeholder="LWM-ARCHIVE-001"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Phone Number</label>
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+880 1711-XXXXXX"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  setIsEditModalOpen(false);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs"
+              >
+                {saving ? 'Saving...' : isEditModalOpen ? 'Update Personnel' : 'Create Personnel'}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
 
