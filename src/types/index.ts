@@ -1,4 +1,5 @@
 export type UserRole = 
+  | 'SUPER_ADMIN'
   | 'TRUSTEE'
   | 'CEO'
   | 'DEPT_HEAD'
@@ -9,7 +10,8 @@ export type UserRole =
   | 'CONTRACTUAL'
   | 'EMPLOYEE';
 
-export type UserTier = 'TRUSTEE' | 'EXECUTIVE' | 'DEPT_HEAD' | 'OFFICER' | 'STAFF' | 'CONTRACTUAL';
+export type UserTier = 'SUPER_ADMIN' | 'TRUSTEE' | 'EXECUTIVE' | 'DEPT_HEAD' | 'OFFICER' | 'STAFF' | 'CONTRACTUAL';
+
 
 export interface LocalizedString {
   en: string;
@@ -154,6 +156,8 @@ export interface TaskRequest {
   requesterDepartment?: DepartmentRef | null;
   targetEmployeeId: string;
   targetEmployee?: User | null;
+  suggestedEmployeeId?: string;
+  suggestedEmployee?: User | null;
   targetDepartmentId: string;
   targetDepartment?: DepartmentRef | null;
   title: string;
@@ -347,3 +351,5 @@ export type NavigationTab =
   | 'performance';
 
 export type NavTab = NavigationTab;
+
+
