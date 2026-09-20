@@ -36,8 +36,9 @@ export function verifyToken(token: string): AuthTokenPayload | null {
 
 export function getEffectiveRole(user: Pick<User, 'role' | 'roleId'>): UserRole {
   const candidate = user.roleId || user.role;
+  if (candidate === 'SUPER_ADMIN') return 'SUPER_ADMIN';
   if (candidate === 'DEPARTMENT_HEAD') return 'DEPT_HEAD';
-  if (candidate === 'TRUSTEE' || candidate === 'CEO' || candidate === 'DEPT_HEAD' || candidate === 'OFFICER' || candidate === 'ASSISTANT_OFFICER' || candidate === 'STAFF' || candidate === 'CONTRACTUAL') {
+  if (candidate === 'SUPER_ADMIN' || candidate === 'TRUSTEE' || candidate === 'CEO' || candidate === 'DEPT_HEAD' || candidate === 'OFFICER' || candidate === 'ASSISTANT_OFFICER' || candidate === 'STAFF' || candidate === 'CONTRACTUAL') {
     return candidate as UserRole;
   }
   return user.role;
@@ -45,6 +46,7 @@ export function getEffectiveRole(user: Pick<User, 'role' | 'roleId'>): UserRole 
 
 export function getHierarchyLevel(user: Pick<User, 'role' | 'roleId'> | undefined): number {
   switch (getEffectiveRole(user || { role: 'EMPLOYEE', roleId: undefined })) {
+    case 'SUPER_ADMIN': return 5;
     case 'TRUSTEE': return 4;
     case 'CEO': return 3;
     case 'DEPT_HEAD': return 2;
@@ -99,12 +101,13 @@ export function checkRole(allowedRoles: UserRole[]) {
       return;
     }
 
-    if (getEffectiveRole(req.user) === 'CEO' || getEffectiveRole(req.user) === 'TRUSTEE') {
-      // High-level executive oversight has universal read/access where appropriate
+    const role = getEffectiveRole(req.user);
+    if (role === 'SUPER_ADMIN' || role === 'CEO' || role === 'TRUSTEE') {
+      // High-level executive oversight & Super Admin have universal access
       return next();
     }
 
-    if (!allowedRoles.includes(getEffectiveRole(req.user))) {
+    if (!allowedRoles.includes(role)) {
       res.status(403).json({ success: false, message: 'Access denied. Insufficient role permissions.' });
       return;
     }
@@ -112,3 +115,4 @@ export function checkRole(allowedRoles: UserRole[]) {
     next();
   };
 }
+
