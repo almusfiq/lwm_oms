@@ -1,4 +1,5 @@
 export type UserRole = 
+  | 'SUPER_ADMIN'
   | 'TRUSTEE'
   | 'CEO'
   | 'DEPT_HEAD'
@@ -9,7 +10,8 @@ export type UserRole =
   | 'EMPLOYEE'
   | 'DEPARTMENT_HEAD';
 
-export type UserTier = 'TRUSTEE' | 'EXECUTIVE' | 'DEPT_HEAD' | 'OFFICER' | 'STAFF' | 'CONTRACTUAL';
+export type UserTier = 'SUPER_ADMIN' | 'TRUSTEE' | 'EXECUTIVE' | 'DEPT_HEAD' | 'OFFICER' | 'STAFF' | 'CONTRACTUAL';
+
 
 export interface LocalizedString {
   en: string;
@@ -127,6 +129,7 @@ export interface TaskRequest {
   requesterId: string;
   requesterDepartmentId: string;
   targetEmployeeId: string;
+  suggestedEmployeeId?: string;
   targetDepartmentId: string;
   title: string;
   description: string;
@@ -306,3 +309,5 @@ export interface OfficeDocument {
   isConfidential?: boolean;
   createdAt: string;
 }
+
+
