@@ -1,7 +1,7 @@
 const API_BASE = '/api';
 
 function getAuthHeader(): HeadersInit {
-  const token = localStorage.getItem('lwm_auth_token');
+  const token = sessionStorage.getItem('lwm_auth_token') || localStorage.getItem('lwm_auth_token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -146,7 +146,7 @@ export const api = {
   // File Upload (multipart/form-data)
   upload: {
     files: async (files: File[]): Promise<any[]> => {
-      const token = localStorage.getItem('lwm_auth_token');
+      const token = sessionStorage.getItem('lwm_auth_token') || localStorage.getItem('lwm_auth_token');
       const formData = new FormData();
       files.forEach(f => formData.append('files', f));
       const res = await fetch(`${API_BASE}/upload`, {
