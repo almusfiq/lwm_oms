@@ -3,6 +3,7 @@ import { User, UserRole } from '../types';
 type HierarchyUser = Pick<User, 'role' | 'roleId'>;
 
 const HIERARCHY_LEVELS: Record<UserRole, number> = {
+  SUPER_ADMIN: 5,
   TRUSTEE: 4,
   CEO: 3,
   DEPT_HEAD: 2,
@@ -16,6 +17,7 @@ const HIERARCHY_LEVELS: Record<UserRole, number> = {
 
 export function getUserRole(user?: HierarchyUser | null): UserRole {
   const candidate = user?.roleId || user?.role || 'EMPLOYEE';
+  if (candidate === 'SUPER_ADMIN') return 'SUPER_ADMIN';
   if (candidate === 'DEPARTMENT_HEAD') return 'DEPT_HEAD';
   return (HIERARCHY_LEVELS[candidate as UserRole] !== undefined ? candidate : 'EMPLOYEE') as UserRole;
 }
@@ -31,3 +33,8 @@ export function isHigherLevel(requester?: HierarchyUser | null, target?: Hierarc
 export function isDepartmentHead(user?: HierarchyUser | null): boolean {
   return getUserRole(user) === 'DEPT_HEAD';
 }
+
+export function isSuperAdmin(user?: HierarchyUser | null): boolean {
+  return getUserRole(user) === 'SUPER_ADMIN';
+}
+
