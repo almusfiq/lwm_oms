@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPendingRequests(data.pendingRequests || 0);
     } catch {
       // Token invalid or missing, clear
+      sessionStorage.removeItem('lwm_auth_token');
       localStorage.removeItem('lwm_auth_token');
       setUser(null);
       setDepartment(null);
@@ -39,10 +40,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('lwm_auth_token');
+    // Clear legacy persistent token from browser localStorage so app always starts on Login Page
+    localStorage.removeItem('lwm_auth_token');
+
+    const token = sessionStorage.getItem('lwm_auth_token');
     if (token) {
       refreshMe().finally(() => setLoading(false));
     } else {
+      setUser(null);
+      setDepartment(null);
       setLoading(false);
     }
   }, []);
@@ -51,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const res = await api.auth.login(identifier, pass);
-      localStorage.setItem('lwm_auth_token', res.token);
+      sessionStorage.setItem('lwm_auth_token', res.token);
       setUser(res.user);
       await refreshMe();
     } finally {
@@ -63,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const res = await api.auth.switchUser(userId);
-      localStorage.setItem('lwm_auth_token', res.token);
+      sessionStorage.setItem('lwm_auth_token', res.token);
       setUser(res.user);
       await refreshMe();
     } finally {
@@ -72,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    sessionStorage.removeItem('lwm_auth_token');
     localStorage.removeItem('lwm_auth_token');
     setUser(null);
     setDepartment(null);
