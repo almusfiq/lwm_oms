@@ -125,6 +125,45 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <ArrowRight className={`w-5 h-5 ${submitting ? 'animate-pulse' : ''}`} />
             </button>
           </form>
+
+          {/* Demo Login Quick Fill Badges */}
+          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+              Quick Fill Demo Credentials
+            </p>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIdentifier('ceo@liberationwarmuseum.org');
+                  setPassword('LWM@2026');
+                }}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-900/40 transition-colors"
+              >
+                CEO Login
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIdentifier('sarwar.ali@lwmbd.org');
+                  setPassword('LWM@2026');
+                }}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40 transition-colors"
+              >
+                Trustee Login
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIdentifier('finance.head@lwmbd.org');
+                  setPassword('LWM@2026');
+                }}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40 transition-colors"
+              >
+                Finance Head
+              </button>
+            </div>
+          </div>
         </div>
 
         <p className="mt-8 text-center text-xs font-medium text-slate-400 dark:text-slate-500 tracking-wide">
