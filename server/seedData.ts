@@ -91,6 +91,9 @@ export async function seedDatabase(force = false) {
     }
   ];
 
+  // 2. Users
+  const usersData: User[] = [];
+
   // 2.0 Super Admin
   usersData.push({
     _id: 'usr_super_admin',
