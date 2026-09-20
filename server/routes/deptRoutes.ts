@@ -92,3 +92,97 @@ deptRoutes.get('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) =
     }
   });
 });
+
+// POST /api/departments (Create Department - Super Admin & CEO)
+deptRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const callerRole = getEffectiveRole(req.user!);
+  if (callerRole !== 'SUPER_ADMIN' && callerRole !== 'CEO') {
+    res.status(403).json({ success: false, message: 'Only Super Admin or CEO can create departments.' });
+    return;
+  }
+
+  const { code, name, description, headId } = req.body;
+  if (!code || !name?.en) {
+    res.status(400).json({ success: false, message: 'Department code and English name are required.' });
+    return;
+  }
+
+  const existingCode = db.departments.find(d => d.code.toUpperCase() === code.toUpperCase().trim());
+  if (existingCode) {
+    res.status(409).json({ success: false, message: `Department with code ${code} already exists.` });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const newDept: any = {
+    _id: `dept_${code.toLowerCase().trim()}`,
+    code: code.toUpperCase().trim(),
+    name: {
+      en: name.en.trim(),
+      bn: name.bn?.trim() || name.en.trim()
+    },
+    description: description?.trim() || '',
+    headId: headId || undefined,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  db.departments.push(newDept);
+  db.save();
+
+  res.status(201).json({ success: true, data: newDept });
+});
+
+// PATCH /api/departments/:id (Update Department - Super Admin & CEO)
+deptRoutes.patch('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const callerRole = getEffectiveRole(req.user!);
+  if (callerRole !== 'SUPER_ADMIN' && callerRole !== 'CEO') {
+    res.status(403).json({ success: false, message: 'Only Super Admin or CEO can update departments.' });
+    return;
+  }
+
+  const dept = db.departments.find(d => d._id === req.params.id || d.code.toUpperCase() === req.params.id.toUpperCase());
+  if (!dept) {
+    res.status(404).json({ success: false, message: 'Department not found' });
+    return;
+  }
+
+  const { name, description, headId, code, isActive } = req.body;
+
+  if (name) {
+    if (name.en) dept.name.en = name.en.trim();
+    if (name.bn) dept.name.bn = name.bn.trim();
+  }
+  if (code) dept.code = code.toUpperCase().trim();
+  if (description !== undefined) dept.description = description.trim();
+  if (headId !== undefined) dept.headId = headId;
+  if (isActive !== undefined) dept.isActive = Boolean(isActive);
+
+  dept.updatedAt = new Date().toISOString();
+  db.save();
+
+  res.json({ success: true, data: dept });
+});
+
+// DELETE /api/departments/:id (Delete Department - Super Admin & CEO)
+deptRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const callerRole = getEffectiveRole(req.user!);
+  if (callerRole !== 'SUPER_ADMIN' && callerRole !== 'CEO') {
+    res.status(403).json({ success: false, message: 'Only Super Admin or CEO can delete departments.' });
+    return;
+  }
+
+  const idx = db.departments.findIndex(d => d._id === req.params.id || d.code.toUpperCase() === req.params.id.toUpperCase());
+  if (idx === -1) {
+    res.status(404).json({ success: false, message: 'Department not found' });
+    return;
+  }
+
+  const targetDept = db.departments[idx];
+  db.departments.splice(idx, 1);
+  db.save();
+
+  res.json({ success: true, message: `Department ${targetDept.name.en} deleted successfully.` });
+});
+
