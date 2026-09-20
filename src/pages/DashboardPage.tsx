@@ -323,26 +323,36 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     (userDeptCode === 'FINANCE' && dwCode === 'FIN')
                   );
                 })
-                .map((dw: any) => (
-                <div key={dw.departmentId} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300 w-12">[{dw.code}]</span>
-                      <span className="font-medium text-slate-900 dark:text-slate-100">{dw.name}</span>
+                .filter((dw: any, idx: number, self: any[]) =>
+                  idx === self.findIndex((t: any) => (t.code && dw.code && t.code.toUpperCase() === dw.code.toUpperCase()) || t.departmentId === dw.departmentId)
+                )
+                .map((dw: any) => {
+                  const deptDisplayName = typeof dw.name === 'object' ? (dw.name?.en || dw.code) : dw.name;
+                  return (
+                    <div key={dw.departmentId || dw.code} className="space-y-1.5 p-2.5 rounded-xl bg-slate-50/50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                      <div className="flex flex-wrap items-center justify-between text-xs gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-200 shrink-0">
+                            {dw.code}
+                          </span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                            {deptDisplayName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2.5 text-slate-500 font-mono text-[11px] shrink-0">
+                          <span className="font-medium text-blue-600 dark:text-blue-400">{dw.active} active</span>
+                          {dw.overdue > 0 && <span className="text-red-600 font-bold">{dw.overdue} overdue</span>}
+                          <span className="font-bold text-slate-700 dark:text-slate-300">{dw.total} total</span>
+                        </div>
+                      </div>
+                      <div className="h-2 w-full bg-slate-200/60 dark:bg-slate-700/60 rounded-full overflow-hidden flex">
+                        <div className="bg-blue-500 h-full transition-all" style={{ width: `${dw.total > 0 ? (dw.active / dw.total) * 100 : 0}%` }} />
+                        <div className="bg-red-500 h-full transition-all" style={{ width: `${dw.total > 0 ? (dw.overdue / dw.total) * 100 : 0}%` }} />
+                        <div className="bg-emerald-500 h-full transition-all" style={{ width: `${dw.total > 0 ? (dw.completed / dw.total) * 100 : 0}%` }} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-slate-500">
-                      <span>{dw.active} active</span>
-                      {dw.overdue > 0 && <span className="text-red-600 font-semibold">{dw.overdue} overdue</span>}
-                      <span className="font-bold text-slate-700 dark:text-slate-300">{dw.total} total</span>
-                    </div>
-                  </div>
-                  <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
-                    <div className="bg-blue-500 h-full" style={{ width: `${dw.total > 0 ? (dw.active / dw.total) * 100 : 0}%` }} />
-                    <div className="bg-red-500 h-full" style={{ width: `${dw.total > 0 ? (dw.overdue / dw.total) * 100 : 0}%` }} />
-                    <div className="bg-emerald-500 h-full" style={{ width: `${dw.total > 0 ? (dw.completed / dw.total) * 100 : 0}%` }} />
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
             </div>
             <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500"><div className="w-2.5 h-2.5 rounded-full bg-blue-500" />Active</div>
