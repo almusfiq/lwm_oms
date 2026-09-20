@@ -808,7 +808,7 @@ taskRoutes.post('/:id/attachments', requireAuth, (req: AuthenticatedRequest, res
 });
 
 // DELETE /api/tasks/:id (Super Admin, CEO, or Task Creator)
-taskRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+taskRoutes.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const callerRole = getEffectiveRole(req.user!);
   const isSuperAdmin = callerRole === 'SUPER_ADMIN';
   const isCEO = callerRole === 'CEO';
@@ -827,7 +827,6 @@ taskRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response
     return;
   }
 
-  db.tasks.splice(taskIdx, 1);
   db.activityLogs.unshift({
     _id: db.generateId('act'),
     actorId: req.user!._id,
@@ -838,7 +837,7 @@ taskRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response
     createdAt: new Date().toISOString()
   });
 
-  db.save();
+  await db.deleteTaskFromDb(task._id);
   res.json({ success: true, message: `Task ${task.taskId} deleted successfully.` });
 });
 
