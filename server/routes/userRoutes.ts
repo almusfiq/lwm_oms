@@ -12,15 +12,17 @@ userRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
 
   let list = [...db.users];
 
-  if (activeOnly === 'true' || activeOnly === undefined) {
-    list = list.filter(u => u.isActive);
-  }
-
   if (req.user) {
     const callerRole = getEffectiveRole(req.user);
+    const isSuperAdmin = callerRole === 'SUPER_ADMIN';
     const isTrustee = callerRole === 'TRUSTEE';
     const isCEO = callerRole === 'CEO';
-    if (!isTrustee && !isCEO && req.user.departmentId) {
+
+    if (!isSuperAdmin && (activeOnly === 'true' || activeOnly === undefined)) {
+      list = list.filter(u => u.isActive);
+    }
+
+    if (!isSuperAdmin && !isTrustee && !isCEO && req.user.departmentId) {
       const callerDeptId = resolveDepartmentId(req.user.departmentId, db.departments) || req.user.departmentId;
       list = list.filter(u => u.departmentId === callerDeptId);
     }
@@ -102,15 +104,16 @@ userRoutes.get('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) =
   });
 });
 
-// POST /api/users (Create new employee)
+// POST /api/users (Create new user/employee)
 userRoutes.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (req.user?.role !== 'CEO' && req.user?.role !== 'TRUSTEE') {
-      res.status(403).json({ success: false, message: 'Only CEO or Trustee can add employees.' });
+    const callerRole = getEffectiveRole(req.user!);
+    if (callerRole !== 'SUPER_ADMIN' && callerRole !== 'CEO' && callerRole !== 'TRUSTEE') {
+      res.status(403).json({ success: false, message: 'Only Super Admin, CEO or Trustee can add users.' });
       return;
     }
 
-    const { name, email, designation, departmentId, role, tier, phone } = req.body;
+    const { name, email, password, designation, departmentId, role, tier, phone, uniqueId } = req.body;
 
     if (!name?.en || !email || !designation?.en) {
       res.status(400).json({ success: false, message: 'Name, email and designation are required' });
@@ -123,7 +126,7 @@ userRoutes.post('/', requireAuth, async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    const defaultPassword = await bcrypt.hash('LWM@2026', 10);
+    const initialPassword = password ? await bcrypt.hash(password, 10) : await bcrypt.hash('LWM@2026', 10);
     const count = db.users.length + 1;
     const dept = db.departments.find(d => d._id === departmentId);
     const code = dept ? dept.code : 'GEN';
@@ -131,12 +134,13 @@ userRoutes.post('/', requireAuth, async (req: AuthenticatedRequest, res: Respons
     const newUser: User = {
       _id: db.generateId('usr'),
       employeeId: `LWM-${code}-${String(count).padStart(3, '0')}`,
+      uniqueId: uniqueId || `LWM-${code}-${String(count).padStart(3, '0')}`,
       name: {
         en: name.en,
         bn: name.bn || name.en
       },
       email: email.toLowerCase(),
-      password: defaultPassword,
+      password: initialPassword,
       designation: {
         en: designation.en,
         bn: designation.bn || designation.en
@@ -144,7 +148,7 @@ userRoutes.post('/', requireAuth, async (req: AuthenticatedRequest, res: Respons
       departmentId,
       role: role || 'OFFICER',
       roleId: role || undefined,
-      tier: tier || 'OFFICER',
+      tier: tier || (role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'OFFICER'),
       phone: phone || '',
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -154,11 +158,11 @@ userRoutes.post('/', requireAuth, async (req: AuthenticatedRequest, res: Respons
     db.users.push(newUser);
     db.activityLogs.unshift({
       _id: db.generateId('act'),
-      actorId: req.user._id,
+      actorId: req.user!._id,
       action: 'USER_CREATED',
       resourceType: 'USER',
       resourceId: newUser._id,
-      metadata: { name: newUser.name.en, email: newUser.email },
+      metadata: { name: newUser.name.en, email: newUser.email, role: newUser.role },
       createdAt: new Date().toISOString()
     });
 
@@ -216,33 +220,40 @@ userRoutes.post('/change-password', requireAuth, async (req: AuthenticatedReques
   }
 });
 
-// PATCH /api/users/:id
-userRoutes.patch('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+// PATCH /api/users/:id (Update user - Super Admin, CEO, Trustee or Self)
+userRoutes.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const user = db.users.find(u => u._id === req.params.id);
   if (!user) {
     res.status(404).json({ success: false, message: 'User not found' });
     return;
   }
 
-  // Permission check: only admin, CEO, or user updating their own profile
+  const callerRole = getEffectiveRole(req.user!);
   const isSelf = req.user?._id === user._id;
-  const isPrivileged = req.user?.role === 'CEO' || req.user?.role === 'TRUSTEE';
+  const isSuperAdmin = callerRole === 'SUPER_ADMIN';
+  const isPrivileged = isSuperAdmin || callerRole === 'CEO' || callerRole === 'TRUSTEE';
 
   if (!isSelf && !isPrivileged) {
     res.status(403).json({ success: false, message: 'Not authorized to edit this user' });
     return;
   }
 
-  const { name, phone, photo, designation, departmentId, role, isActive } = req.body;
+  const { name, email, password, phone, photo, designation, departmentId, role, isActive } = req.body;
 
   if (name) {
     if (name.en) user.name.en = name.en;
     if (name.bn) user.name.bn = name.bn;
   }
+  if (email && isPrivileged) {
+    user.email = email.toLowerCase();
+  }
+  if (password && (isSuperAdmin || isSelf || isPrivileged)) {
+    user.password = await bcrypt.hash(password, 10);
+  }
   if (phone !== undefined) user.phone = phone;
   if (photo !== undefined) user.photo = photo;
 
-  // Only privileged can change role, department, designation, or status
+  // Privileged fields
   if (isPrivileged) {
     if (designation) {
       if (designation.en) user.designation.en = designation.en;
@@ -252,6 +263,7 @@ userRoutes.patch('/:id', requireAuth, (req: AuthenticatedRequest, res: Response)
     if (role) {
       user.role = role;
       user.roleId = role;
+      if (role === 'SUPER_ADMIN') user.tier = 'SUPER_ADMIN';
     }
     if (isActive !== undefined) user.isActive = Boolean(isActive);
   }
@@ -261,11 +273,14 @@ userRoutes.patch('/:id', requireAuth, (req: AuthenticatedRequest, res: Response)
   res.json({ success: true, data: sanitizeUser(user) });
 });
 
-// DELETE /api/users/:id
+// DELETE /api/users/:id (Delete user - Super Admin can delete anyone!)
 userRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const viewer = req.user!;
-  if (viewer.role !== 'TRUSTEE' && viewer.role !== 'CEO') {
-    res.status(403).json({ success: false, message: 'Only Trustee or CEO can delete employees.' });
+  const viewerRole = getEffectiveRole(viewer);
+  const isSuperAdmin = viewerRole === 'SUPER_ADMIN';
+
+  if (!isSuperAdmin && viewerRole !== 'TRUSTEE' && viewerRole !== 'CEO') {
+    res.status(403).json({ success: false, message: 'Only Super Admin, Trustee, or CEO can delete users.' });
     return;
   }
 
@@ -276,7 +291,8 @@ userRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response
   }
 
   const target = db.users[userIdx];
-  if (target.role === 'TRUSTEE' || target.role === 'CEO') {
+  // Super Admin can delete anyone (including Trustee or CEO). Non-Super Admin cannot delete Trustee or CEO.
+  if (!isSuperAdmin && (target.role === 'TRUSTEE' || target.role === 'CEO')) {
     res.status(403).json({ success: false, message: 'Cannot delete Trustee or CEO accounts.' });
     return;
   }
@@ -293,8 +309,9 @@ userRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response
   });
   db.save();
 
-  res.json({ success: true, message: `Employee ${target.name.en} removed successfully.` });
+  res.json({ success: true, message: `User ${target.name.en} removed successfully.` });
 });
+
 
 // GET /api/users/performance — role-gated performance scores
 userRoutes.get('/performance/all', requireAuth, (req: AuthenticatedRequest, res: Response) => {
