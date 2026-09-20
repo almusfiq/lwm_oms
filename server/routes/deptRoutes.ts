@@ -166,7 +166,7 @@ deptRoutes.patch('/:id', requireAuth, (req: AuthenticatedRequest, res: Response)
 });
 
 // DELETE /api/departments/:id (Delete Department - Super Admin & CEO)
-deptRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+deptRoutes.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const callerRole = getEffectiveRole(req.user!);
   if (callerRole !== 'SUPER_ADMIN' && callerRole !== 'CEO') {
     res.status(403).json({ success: false, message: 'Only Super Admin or CEO can delete departments.' });
@@ -180,9 +180,7 @@ deptRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response
   }
 
   const targetDept = db.departments[idx];
-  db.departments.splice(idx, 1);
-  db.save();
-
+  await db.deleteDepartmentFromDb(targetDept._id);
   res.json({ success: true, message: `Department ${targetDept.name.en} deleted successfully.` });
 });
 
