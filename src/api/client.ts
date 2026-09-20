@@ -140,6 +140,13 @@ export const api = {
         body: JSON.stringify(data)
       });
       return handleResponse<any>(res);
+    },
+    delete: async (id: string) => {
+      const res = await fetch(`${API_BASE}/tasks/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      return handleResponse<any>(res);
     }
   },
 
@@ -185,11 +192,12 @@ export const api = {
       });
       return handleResponse<any>(res);
     },
-    accept: async (id: string, responseMessage?: string) => {
+    accept: async (id: string, options?: string | { responseMessage?: string; assignedToId?: string }) => {
+      const body = typeof options === 'string' ? { responseMessage: options } : (options || {});
       const res = await fetch(`${API_BASE}/task-requests/${id}/accept`, {
         method: 'POST',
         headers: getAuthHeader(),
-        body: JSON.stringify({ responseMessage })
+        body: JSON.stringify(body)
       });
       return handleResponse<{ request: any; task: any }>(res);
     },
@@ -310,6 +318,29 @@ export const api = {
     },
     get: async (id: string) => {
       const res = await fetch(`${API_BASE}/departments/${id}`, {
+        headers: getAuthHeader()
+      });
+      return handleResponse<any>(res);
+    },
+    create: async (data: any) => {
+      const res = await fetch(`${API_BASE}/departments`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        body: JSON.stringify(data)
+      });
+      return handleResponse<any>(res);
+    },
+    update: async (id: string, data: any) => {
+      const res = await fetch(`${API_BASE}/departments/${id}`, {
+        method: 'PATCH',
+        headers: getAuthHeader(),
+        body: JSON.stringify(data)
+      });
+      return handleResponse<any>(res);
+    },
+    delete: async (id: string) => {
+      const res = await fetch(`${API_BASE}/departments/${id}`, {
+        method: 'DELETE',
         headers: getAuthHeader()
       });
       return handleResponse<any>(res);
@@ -514,3 +545,5 @@ export const api = {
     }
   }
 };
+
+
