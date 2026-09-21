@@ -26,11 +26,27 @@ authRoutes.post('/login', async (req, res: Response) => {
     );
 
     if (!user) {
+      db.logActivity({
+        actorId: 'system',
+        action: 'FAILED_LOGIN',
+        module: 'SECURITY',
+        description: `Failed login attempt: Account "${loginInput}" not found`,
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+        metadata: { identifier: loginInput, reason: 'ACCOUNT_NOT_FOUND' }
+      });
       res.status(401).json({ success: false, message: 'Invalid credentials. No account found with this email or ID.' });
       return;
     }
 
     if (!user.isActive) {
+      db.logActivity({
+        actorId: user._id,
+        action: 'FAILED_LOGIN',
+        module: 'SECURITY',
+        description: `Failed login attempt for inactive user ${user.name.en}`,
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+        metadata: { email: user.email, reason: 'ACCOUNT_INACTIVE' }
+      });
       res.status(403).json({ success: false, message: 'This account is inactive (In Memoriam / Deactivated).' });
       return;
     }
@@ -48,6 +64,14 @@ authRoutes.post('/login', async (req, res: Response) => {
     }
 
     if (!isMatch) {
+      db.logActivity({
+        actorId: user._id,
+        action: 'FAILED_LOGIN',
+        module: 'SECURITY',
+        description: `Failed login attempt for ${user.name.en} (${user.email}) - Incorrect Password`,
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+        metadata: { email: user.email, employeeId: user.employeeId, reason: 'INCORRECT_PASSWORD' }
+      });
       res.status(401).json({ success: false, message: 'Incorrect password.' });
       return;
     }
@@ -55,6 +79,18 @@ authRoutes.post('/login', async (req, res: Response) => {
     // Update last login
     user.lastLoginAt = new Date().toISOString();
     db.save();
+
+    db.logActivity({
+      actorId: user._id,
+      action: 'LOGIN',
+      module: 'AUTH',
+      description: `User ${user.name.en} logged in successfully`,
+      resourceType: 'USER',
+      resourceId: user._id,
+      resourceName: user.name.en,
+      ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+      metadata: { role: user.role, email: user.email, employeeId: user.employeeId }
+    });
 
     const token = generateToken(user);
     res.json({
@@ -67,6 +103,23 @@ authRoutes.post('/login', async (req, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || 'Login failed' });
   }
+});
+
+// POST /api/auth/logout
+authRoutes.post('/logout', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  if (req.user) {
+    db.logActivity({
+      actorId: req.user._id,
+      action: 'LOGOUT',
+      module: 'AUTH',
+      description: `User ${req.user.name.en} logged out`,
+      resourceType: 'USER',
+      resourceId: req.user._id,
+      resourceName: req.user.name.en,
+      ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1'
+    });
+  }
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // GET /api/auth/me
@@ -107,6 +160,18 @@ authRoutes.post('/switch-user', (req, res: Response) => {
 
   user.lastLoginAt = new Date().toISOString();
   db.save();
+
+  db.logActivity({
+    actorId: user._id,
+    action: 'SWITCH_USER',
+    module: 'SECURITY',
+    description: `Switched session active user to ${user.name.en} (${user.role})`,
+    resourceType: 'USER',
+    resourceId: user._id,
+    resourceName: user.name.en,
+    ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+    metadata: { role: user.role, email: user.email }
+  });
 
   const token = generateToken(user);
   res.json({
