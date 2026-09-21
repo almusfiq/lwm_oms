@@ -132,6 +132,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
+      {/* ─── SUPER ADMIN GOVERNANCE ─── */}
+      {isSuperAdmin && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Personnel & Accounts" value={stats.totalEmployees || analytics?.totalUsers || 0} icon={Users}
+            sublabel="Manage roles & accounts" color="blue" onClick={() => onNavigateTab('employees')} />
+          <StatCard label="Museum Departments" value={stats.totalDepts || 8} icon={Building2}
+            sublabel="Operational divisions" color="emerald" onClick={() => onNavigateTab('departments')} />
+          <StatCard label="System Audit Logs" value="Inspect" icon={ShieldCheck}
+            sublabel="Activity & security history" color="red" onClick={() => onNavigateTab('activity-logs')} />
+          <StatCard label="Overdue Directives" value={stats.overdueTasks || 0} icon={AlertCircle}
+            sublabel="Requires urgent review" color="amber" onClick={() => onNavigateTab('all-tasks', { overdueOnly: true })} />
+        </div>
+      )}
+
       {/* ─── TRUSTEE DASHBOARD ─── */}
       {isTrustee && (
         <>
