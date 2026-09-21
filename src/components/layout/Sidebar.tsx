@@ -132,13 +132,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Task Requests — everyone (staff uses this to request from dept head) */}
           <NavBtn tab="requests" icon={GitPullRequest} label={isStaff ? 'Work Requests' : 'Task Requests'} badge={pendingRequests} />
 
-          {/* Kanban Board & Calendar — for non-staff */}
+          {/* Kanban Board — for non-staff */}
           {!isStaff && (
-            <>
-              <NavBtn tab="board" icon={Kanban} label="Kanban Board" />
-              <NavBtn tab="calendar" icon={Calendar} label="Calendar" />
-            </>
+            <NavBtn tab="board" icon={Kanban} label="Kanban Board" />
           )}
+
+          {/* Calendar — for everyone */}
+          <NavBtn tab="calendar" icon={Calendar} label="Calendar" />
 
           {/* Projects — Trustee, CEO, Dept Head */}
           {!isStaff && (
