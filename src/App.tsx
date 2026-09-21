@@ -18,7 +18,10 @@ import { DocumentsPage } from './pages/DocumentsPage';
 import { EventsPage } from './pages/EventsPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { PerformancePage } from './pages/PerformancePage';
+import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { LoginPage } from './pages/LoginPage';
+
+
 
 // Global Task Modals
 import { TaskDetailModal } from './components/tasks/TaskDetailModal';
@@ -86,6 +89,8 @@ function MainApp() {
         onOpenProfileDrawer={() => setIsProfileDrawerOpen(true)}
         onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
       />
+
+
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left Navigation Sidebar */}
@@ -225,6 +230,12 @@ function MainApp() {
           {currentTab === 'performance' && (
             <PerformancePage />
           )}
+
+          {currentTab === 'activity-logs' && user?.role === 'SUPER_ADMIN' && (
+            <ActivityLogsPage />
+          )}
+
+
 
         </main>
       </div>
