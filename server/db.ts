@@ -382,6 +382,42 @@ class DatabaseManager {
     return `${prefix}_${crypto.randomUUID().split('-')[0]}`;
   }
 
+  public logActivity(params: {
+    actorId: string;
+    action: string;
+    module: ActivityLog['module'];
+    description: string;
+    resourceType?: string;
+    resourceId?: string;
+    resourceName?: string;
+    ipAddress?: string;
+    metadata?: Record<string, any>;
+  }): ActivityLog {
+    const newLog: ActivityLog = {
+      _id: this.generateId('act'),
+      actorId: params.actorId || 'system',
+      action: params.action,
+      module: params.module || 'SYSTEM',
+      resourceType: params.resourceType,
+      resourceId: params.resourceId,
+      resourceName: params.resourceName,
+      description: params.description,
+      ipAddress: params.ipAddress || '127.0.0.1',
+      metadata: params.metadata || {},
+      createdAt: new Date().toISOString()
+    };
+
+    this.activityLogs.unshift(newLog);
+
+    // Keep memory capped to max 5,000 entries
+    if (this.activityLogs.length > 5000) {
+      this.activityLogs = this.activityLogs.slice(0, 5000);
+    }
+
+    this.save().catch(err => console.error('[DB] logActivity Save Error:', err));
+    return newLog;
+  }
+
   public async disconnect() {
     if (!this.isConnected) return;
     await mongoose.disconnect();
