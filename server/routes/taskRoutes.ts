@@ -59,8 +59,15 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
     const isDeptHead = role === 'DEPT_HEAD';
     const userDeptId = req.user.departmentId;
 
-    if (!isSuperAdmin && !isTrustee && !isCEO) {
-
+    if (myTasks === 'true') {
+      const uid = req.user._id;
+      filtered = filtered.filter(t => 
+        t.assignedTo.includes(uid) || 
+        t.requestedBy === uid || 
+        t.createdBy === uid || 
+        t.collaborators.includes(uid)
+      );
+    } else if (!isSuperAdmin && !isTrustee && !isCEO) {
       if (isDeptHead && userDeptId) {
         const resolvedDeptId = resolveDepartmentId(userDeptId, db.departments) || userDeptId;
         filtered = filtered.filter(t => 
@@ -81,14 +88,6 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
           t.collaborators.includes(uid)
         );
       }
-    } else if (myTasks === 'true') {
-      const uid = req.user._id;
-      filtered = filtered.filter(t => 
-        t.assignedTo.includes(uid) || 
-        t.requestedBy === uid || 
-        t.createdBy === uid || 
-        t.collaborators.includes(uid)
-      );
     }
   }
 
