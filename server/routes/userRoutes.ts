@@ -156,14 +156,16 @@ userRoutes.post('/', requireAuth, async (req: AuthenticatedRequest, res: Respons
     };
 
     db.users.push(newUser);
-    db.activityLogs.unshift({
-      _id: db.generateId('act'),
+    db.logActivity({
       actorId: req.user!._id,
-      action: 'USER_CREATED',
+      action: 'CREATE_EMPLOYEE',
+      module: 'USERS',
+      description: `Created new employee profile ${newUser.name.en} (${newUser.employeeId})`,
       resourceType: 'USER',
       resourceId: newUser._id,
-      metadata: { name: newUser.name.en, email: newUser.email, role: newUser.role },
-      createdAt: new Date().toISOString()
+      resourceName: newUser.name.en,
+      ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+      metadata: { name: newUser.name.en, email: newUser.email, role: newUser.role, departmentId }
     });
 
     db.save();
@@ -203,14 +205,15 @@ userRoutes.post('/change-password', requireAuth, async (req: AuthenticatedReques
     user.password = await bcrypt.hash(newPassword, 10);
     user.updatedAt = new Date().toISOString();
 
-    db.activityLogs.unshift({
-      _id: db.generateId('act'),
+    db.logActivity({
       actorId: user._id,
-      action: 'PASSWORD_CHANGED',
+      action: 'PASSWORD_CHANGE',
+      module: 'SECURITY',
+      description: `Password updated for user ${user.name.en}`,
       resourceType: 'USER',
       resourceId: user._id,
-      metadata: { name: user.name.en, email: user.email },
-      createdAt: new Date().toISOString()
+      resourceName: user.name.en,
+      ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1'
     });
 
     db.save();
@@ -240,6 +243,35 @@ userRoutes.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Res
 
   const { name, email, password, phone, photo, designation, departmentId, role, isActive } = req.body;
 
+  if (role && role !== user.role && isPrivileged) {
+    db.logActivity({
+      actorId: req.user!._id,
+      action: 'CHANGE_ROLE',
+      module: 'SECURITY',
+      description: `Changed role permission of ${user.name.en} from ${user.role} to ${role}`,
+      resourceType: 'USER',
+      resourceId: user._id,
+      resourceName: user.name.en,
+      ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+      metadata: { previousRole: user.role, newRole: role }
+    });
+  }
+
+  if (departmentId !== undefined && departmentId !== user.departmentId && isPrivileged) {
+    const newDept = db.departments.find(d => d._id === departmentId);
+    db.logActivity({
+      actorId: req.user!._id,
+      action: 'CHANGE_DEPARTMENT',
+      module: 'USERS',
+      description: `Reassigned employee ${user.name.en} to department ${newDept?.code || departmentId}`,
+      resourceType: 'USER',
+      resourceId: user._id,
+      resourceName: user.name.en,
+      ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+      metadata: { previousDepartmentId: user.departmentId, newDepartmentId: departmentId }
+    });
+  }
+
   if (name) {
     if (name.en) user.name.en = name.en;
     if (name.bn) user.name.bn = name.bn;
@@ -249,6 +281,16 @@ userRoutes.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Res
   }
   if (password && (isSuperAdmin || isSelf || isPrivileged)) {
     user.password = await bcrypt.hash(password, 10);
+    db.logActivity({
+      actorId: req.user!._id,
+      action: 'PASSWORD_CHANGE',
+      module: 'SECURITY',
+      description: `Reset password for user ${user.name.en}`,
+      resourceType: 'USER',
+      resourceId: user._id,
+      resourceName: user.name.en,
+      ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1'
+    });
   }
   if (phone !== undefined) user.phone = phone;
   if (photo !== undefined) user.photo = photo;
@@ -267,6 +309,17 @@ userRoutes.patch('/:id', requireAuth, async (req: AuthenticatedRequest, res: Res
     }
     if (isActive !== undefined) user.isActive = Boolean(isActive);
   }
+
+  db.logActivity({
+    actorId: req.user!._id,
+    action: 'UPDATE_EMPLOYEE',
+    module: 'USERS',
+    description: `Updated profile details for employee ${user.name.en}`,
+    resourceType: 'USER',
+    resourceId: user._id,
+    resourceName: user.name.en,
+    ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1'
+  });
 
   user.updatedAt = new Date().toISOString();
   db.save();
@@ -297,15 +350,18 @@ userRoutes.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Re
     return;
   }
 
-  db.activityLogs.unshift({
-    _id: db.generateId('act'),
+  db.logActivity({
     actorId: viewer._id,
-    action: 'USER_DELETED',
+    action: 'DELETE_EMPLOYEE',
+    module: 'USERS',
+    description: `Permanently deleted employee ${target.name.en} (${target.employeeId})`,
     resourceType: 'USER',
     resourceId: target._id,
-    metadata: { name: target.name.en, email: target.email },
-    createdAt: new Date().toISOString()
+    resourceName: target.name.en,
+    ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+    metadata: { name: target.name.en, email: target.email, role: target.role }
   });
+
   await db.deleteUserFromDb(target._id);
   res.json({ success: true, message: 'User account deleted successfully.' });
 });
