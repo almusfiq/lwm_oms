@@ -127,9 +127,11 @@ export const ApprovalsPage: React.FC = () => {
   // Can the current user act on this approval?
   const canAct = (appr: any) => {
     if (appr.status !== 'PENDING') return false;
+    if (role === 'SUPER_ADMIN') return true;
     if (isTrustee && appr.level === 'TRUSTEE') return true;
     if (isCEO && appr.level === 'CEO') return true;
     if (isDeptHead && appr.level === 'DEPT_HEAD' && appr.approverId === user?._id) return true;
+    if (appr.approverId === user?._id) return true;
     return false;
   };
 
