@@ -7,8 +7,23 @@ export const projectRoutes = Router();
 
 function populateProject(p: Project) {
   const manager = db.users.find(u => u._id === p.managerId);
-  const departments = p.departments.map(dId => db.departments.find(d => d._id === dId)).filter(Boolean);
-  const members = p.members.map(mId => db.users.find(u => u._id === mId)).filter(Boolean).map(u => sanitizeUser(u!));
+  const rawDepts = Array.isArray(p.departments) ? p.departments : [];
+  const rawMembers = Array.isArray(p.members) ? p.members : [];
+
+  const departments = rawDepts.map(dId => {
+    if (typeof dId === 'string') {
+      return db.departments.find(d => d._id === dId);
+    }
+    return dId;
+  }).filter(Boolean);
+
+  const members = rawMembers.map(mId => {
+    if (typeof mId === 'string') {
+      const u = db.users.find(user => user._id === mId);
+      return u ? sanitizeUser(u) : null;
+    }
+    return mId;
+  }).filter(Boolean);
 
   // Compute actual task progress dynamically from real tasks
   const projectTasks = db.tasks.filter(t => t.projectId === p._id);
