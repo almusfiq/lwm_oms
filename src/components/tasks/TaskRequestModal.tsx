@@ -73,8 +73,8 @@ export const TaskRequestModal: React.FC<TaskRequestModalProps> = ({
   // For dept head: can request to CEO or trustee (high-level contacts)
   // For CEO: only to trustee
   const getTargetRoleFilters = (): string[] | undefined => {
-    if (isStaff) return ['DEPT_HEAD'];
-    if (isDeptHead) return ['CEO', 'TRUSTEE'];
+    if (isStaff) return undefined; // Can select any peer or department head across departments
+    if (isDeptHead) return ['CEO', 'TRUSTEE', 'DEPT_HEAD'];
     if (isCEO) return ['TRUSTEE'];
     return undefined;
   };
@@ -202,9 +202,7 @@ export const TaskRequestModal: React.FC<TaskRequestModalProps> = ({
         <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/40 flex items-start gap-2 text-xs text-blue-800 dark:text-blue-300">
           <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <span>
-            {isStaff && 'As staff, you can send work requests to any Department Head. They will review and assign tasks accordingly.'}
-            {isDeptHead && 'As Department Head, you can request work/events to the CEO or Trustee Board.'}
-            {isCEO && 'As CEO, you can request work/events directly to the Trustee Board.'}
+            Cross-department work requests are automatically routed to the <strong>Head of the Target Department</strong>. The Department Head will review the request priority and assign a staff member in their department to execute it.
           </span>
         </div>
 
@@ -213,35 +211,32 @@ export const TaskRequestModal: React.FC<TaskRequestModalProps> = ({
           <div className="flex items-center gap-2">
             <Building className="w-4 h-4 text-red-700" />
             <div>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider block">From</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{department?.name.en || user?.name.en || 'You'}</span>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider block">Source Dept</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{department?.name.en || user?.name.en || 'Your Department'}</span>
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-red-500 shrink-0" />
           <div className="text-right">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider block">To</span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider block">Target Recipient</span>
             <span className="font-bold text-red-800 dark:text-red-300">
-              {(targetEmployee as any)?.name?.en || 'Select recipient below ↓'}
+              {(targetEmployee as any)?.name?.en || 'Target Department Head'}
             </span>
           </div>
         </div>
 
         {/* Target Department and Employee */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Staff select a department first; senior recipients are filtered by role. */}
-          {isStaff && (
-            <DepartmentSelector
-              label="Target Department"
-              value={targetDepartmentId}
-              onChange={(deptId) => {
-                setTargetDepartmentId(deptId);
-                setTargetEmployeeId('');
-                setTargetEmployee(null);
-              }}
-            />
-          )}
+          <DepartmentSelector
+            label="Target Department"
+            value={targetDepartmentId}
+            onChange={(deptId) => {
+              setTargetDepartmentId(deptId);
+              setTargetEmployeeId('');
+              setTargetEmployee(null);
+            }}
+          />
           <EmployeeSelector
-            label={getEmployeeLabel()}
+            label="Target Person (Optional / Suggested Staff)"
             value={targetEmployeeId}
             onChange={(userId, userObj) => {
               setTargetEmployeeId(userId);
@@ -251,17 +246,8 @@ export const TaskRequestModal: React.FC<TaskRequestModalProps> = ({
               }
             }}
             departmentId={targetDepartmentId || undefined}
-            roleFilters={targetRoleFilters}
-            placeholder={
-              isStaff
-                ? 'Select a Department Head...'
-                : isCEO
-                ? 'Select a Trustee...'
-                : 'Select senior recipient'
-            }
+            placeholder="Select specific employee or leave for Dept Head..."
             excludeUserIds={user ? [user._id] : []}
-            disabled={isStaff && !targetDepartmentId}
-            required
           />
         </div>
 
