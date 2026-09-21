@@ -56,7 +56,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateTasks }) => 
       ['Department Code', 'Department Name', 'Total Directives', 'Completed', 'Active', 'Overdue', 'Completion Rate'],
       ...report.departmentStats.map((d: any) => [
         d.code,
-        `"${d.name}"`,
+        `"${typeof d.name === 'object' ? (d.name?.en || d.name?.bn || '') : d.name}"`,
         d.total,
         d.completed,
         d.active,
@@ -491,7 +491,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateTasks }) => 
                 <tr key={d.departmentId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
                   <td className="py-3 px-4">
                     <div className="font-bold text-slate-900 dark:text-slate-100">
-                      {d.name}
+                      {typeof d.name === 'object' ? (d.name?.en || d.name?.bn || d.code) : d.name}
                     </div>
                     <div className="text-[11px] font-mono text-slate-400">
                       [{d.code}]
