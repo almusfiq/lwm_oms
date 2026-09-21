@@ -119,7 +119,7 @@ uploadRoutes.post(
         size: f.size,
         type: fileType,
         mimeType: f.mimetype,
-        url: `/uploads/${f.filename}`,
+        url: `/api/upload/file/${f.filename}`,
         storedFilename: f.filename,
         uploadedBy: req.user!._id,
         uploadedAt: new Date().toISOString()
