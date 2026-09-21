@@ -526,7 +526,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           Connected Project
                         </div>
                         <span className="inline-block px-2.5 py-1 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 font-medium">
-                          {task.project.name}
+                          {typeof task.project.name === 'object' ? (task.project.name as any).en : task.project.name}
                         </span>
                       </div>
                     )}
