@@ -141,6 +141,14 @@ export const api = {
       });
       return handleResponse<any>(res);
     },
+    review: async (id: string, data: { action: 'APPROVE' | 'MODIFY' | 'REJECT' | 'REFER'; note?: string; targetLevel?: string }) => {
+      const res = await fetch(`${API_BASE}/tasks/${id}/review`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        body: JSON.stringify(data)
+      });
+      return handleResponse<any>(res);
+    },
     delete: async (id: string) => {
       const res = await fetch(`${API_BASE}/tasks/${id}`, {
         method: 'DELETE',
