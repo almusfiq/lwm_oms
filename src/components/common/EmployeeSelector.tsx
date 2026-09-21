@@ -50,7 +50,7 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
 
   const filteredUsers = useMemo(() => {
     let list = users.filter(u => !excludeUserIds.includes(u._id));
-    if (departmentId) {
+    if (departmentId && !search.trim()) {
       list = list.filter(u => u.departmentId === departmentId || u.department?._id === departmentId);
     }
     const requestedRoles = roleFilters?.length ? roleFilters : roleFilter ? [roleFilter] : undefined;
