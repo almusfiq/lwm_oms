@@ -293,15 +293,16 @@ taskRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Response) => 
 
     db.tasks.unshift(newTask);
 
-    // Create activity log
-    db.activityLogs.unshift({
-      _id: db.generateId('act'),
+    db.logActivity({
       actorId: creatorId,
-      action: 'TASK_CREATED',
+      action: 'CREATE_TASK',
+      module: 'TASKS',
+      description: `Created directive ${newTask.taskId}: "${newTask.title}"`,
       resourceType: 'TASK',
       resourceId: newTask._id,
-      metadata: { taskId: newTask.taskId, title: newTask.title },
-      createdAt: new Date().toISOString()
+      resourceName: `${newTask.taskId} - ${newTask.title}`,
+      ipAddress: req.ip || '127.0.0.1',
+      metadata: { taskId: newTask.taskId, title: newTask.title, priority: newTask.priority }
     });
 
     // Notify assignees
@@ -827,14 +828,16 @@ taskRoutes.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Re
     return;
   }
 
-  db.activityLogs.unshift({
-    _id: db.generateId('act'),
+  db.logActivity({
     actorId: req.user!._id,
-    action: 'TASK_DELETED',
+    action: 'DELETE_TASK',
+    module: 'TASKS',
+    description: `Permanently deleted directive ${task.taskId}: "${task.title}"`,
     resourceType: 'TASK',
     resourceId: task._id,
-    metadata: { title: task.title, taskId: task.taskId },
-    createdAt: new Date().toISOString()
+    resourceName: `${task.taskId} - ${task.title}`,
+    ipAddress: req.ip || '127.0.0.1',
+    metadata: { title: task.title, taskId: task.taskId }
   });
 
   await db.deleteTaskFromDb(task._id);
