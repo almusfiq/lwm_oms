@@ -179,7 +179,7 @@ export const TaskTable: React.FC<TaskTableProps> = ({
                     </div>
                     {task.project && (
                       <div className="text-[11px] text-blue-600 dark:text-blue-400 line-clamp-1 mt-0.5">
-                        📁 {task.project.name}
+                        📁 {typeof task.project.name === 'object' ? (task.project.name as any).en : task.project.name}
                       </div>
                     )}
                   </td>
