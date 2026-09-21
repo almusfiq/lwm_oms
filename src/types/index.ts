@@ -259,8 +259,12 @@ export interface ActivityLog {
   actorId: string;
   actor?: User | null;
   action: string;
-  resourceType: 'TASK' | 'TASK_REQUEST' | 'PROJECT' | 'APPROVAL' | 'USER' | 'DEPARTMENT';
-  resourceId: string;
+  module: 'AUTH' | 'USERS' | 'TASKS' | 'PROJECTS' | 'DEPARTMENTS' | 'DOCUMENTS' | 'APPROVALS' | 'SECURITY' | 'SYSTEM' | string;
+  resourceType?: 'TASK' | 'TASK_REQUEST' | 'PROJECT' | 'APPROVAL' | 'USER' | 'DEPARTMENT' | 'DOCUMENT' | 'SYSTEM' | string;
+  resourceId?: string;
+  resourceName?: string;
+  description: string;
+  ipAddress?: string;
   metadata?: Record<string, any>;
   createdAt: string;
 }
