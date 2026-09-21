@@ -47,7 +47,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     setLoading(true);
     const fetches: Promise<any>[] = [
       api.analytics.getOverview(),
-      api.tasks.list({ limit: 8, ...(isStaff ? { assignee: user?._id } : {}) }),
+      api.tasks.list({ limit: 8, myTasks: 'true' }),
       api.taskRequests.list({ type: 'incoming', status: 'PENDING' })
     ];
 
