@@ -452,80 +452,279 @@ taskRoutes.post('/:id/submit', requireAuth, (req: AuthenticatedRequest, res: Res
     db.comments.push(submissionComment);
   }
 
-  // 4. Update status & progress (auto-complete or in-review)
+  // 4. Always set task status to IN_REVIEW for assigner verification & decision
   const oldStatus = task.status;
+  task.status = 'IN_REVIEW';
+  task.approvalStatus = 'PENDING';
   task.progress = 100;
   task.updatedAt = new Date().toISOString();
 
-  if (task.requiresApproval) {
+  // Create approval record for assigner/requester/dept head
+  const approverId = task.requestedBy || task.createdBy || req.user!._id;
+  db.approvals.unshift({
+    _id: db.generateId('appr'),
+    title: `Work Approval for ${task.taskId}: ${task.title}`,
+    description: note || `Assignee submitted deliverables for task ${task.taskId}.`,
+    requesterId: req.user!._id,
+    approverId,
+    departmentId: task.departmentId,
+    status: 'PENDING',
+    resourceType: 'TASK',
+    resourceId: task._id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+
+  db.activityLogs.unshift({
+    _id: db.generateId('act'),
+    actorId: req.user!._id,
+    action: 'TASK_SUBMITTED_FOR_REVIEW',
+    resourceType: 'TASK',
+    resourceId: task._id,
+    metadata: { taskId: task.taskId, noteSnippet: (note || '').slice(0, 60), attachmentsCount: newAttachments.length },
+    createdAt: new Date().toISOString()
+  });
+
+  const recipientId = task.requestedBy || task.createdBy;
+  if (recipientId && recipientId !== req.user?._id) {
+    db.notifications.unshift({
+      _id: db.generateId('notif'),
+      recipientId,
+      type: 'STATUS_CHANGED',
+      title: `Work Submitted for Review: ${task.taskId}`,
+      message: `${req.user?.name.en} submitted work & deliverables for "${task.title}". Your decision is required.`,
+      resourceType: 'TASK',
+      resourceId: task._id,
+      isRead: false,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  db.save();
+  res.json({ success: true, data: populateTask(task) });
+});
+
+// POST /api/tasks/:id/review (Assigner decision: APPROVE, MODIFY, REJECT, REFER)
+taskRoutes.post('/:id/review', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const task = db.tasks.find(t => t._id === req.params.id || t.taskId === req.params.id);
+  if (!task) {
+    res.status(404).json({ success: false, message: 'Task not found' });
+    return;
+  }
+
+  const { action, note, targetLevel } = req.body;
+  const user = req.user!;
+  const userRole = user.role;
+
+  if (action === 'APPROVE') {
+    task.status = 'COMPLETED';
+    task.progress = 100;
+    task.approvalStatus = 'APPROVED';
+    task.completedAt = new Date().toISOString();
+    task.updatedAt = new Date().toISOString();
+
+    const pendingAppr = db.approvals.find(a => a.resourceId === task._id && a.status === 'PENDING');
+    if (pendingAppr) {
+      pendingAppr.status = 'APPROVED';
+      pendingAppr.approvedAt = new Date().toISOString();
+      pendingAppr.updatedAt = new Date().toISOString();
+      pendingAppr.reason = note || 'Work approved by assigner.';
+    }
+
+    db.comments.push({
+      _id: db.generateId('cmt'),
+      taskId: task._id,
+      userId: user._id,
+      content: `✅ **WORK APPROVED & COMPLETED**\n\n${(note || 'Assigner confirmed deliverables and marked task 100% completed.').trim()}`,
+      mentions: [],
+      attachments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    db.activityLogs.unshift({
+      _id: db.generateId('act'),
+      actorId: user._id,
+      action: 'TASK_APPROVED_AND_COMPLETED',
+      resourceType: 'TASK',
+      resourceId: task._id,
+      metadata: { taskId: task.taskId, note },
+      createdAt: new Date().toISOString()
+    });
+
+    task.assignedTo.forEach(assigneeId => {
+      if (assigneeId !== user._id) {
+        db.notifications.unshift({
+          _id: db.generateId('notif'),
+          recipientId: assigneeId,
+          type: 'APPROVAL_COMPLETED',
+          title: `✅ Work Approved: ${task.taskId}`,
+          message: `Your submitted work for "${task.title}" has been approved and marked 100% complete by ${user.name.en}.`,
+          resourceType: 'TASK',
+          resourceId: task._id,
+          isRead: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+    });
+  } else if (action === 'MODIFY') { // Re-work / Modify
+    task.status = 'IN_PROGRESS';
+    task.progress = 50;
+    task.approvalStatus = 'REWORK_REQUESTED';
+    task.updatedAt = new Date().toISOString();
+
+    db.comments.push({
+      _id: db.generateId('cmt'),
+      taskId: task._id,
+      userId: user._id,
+      content: `⚠️ **RE-WORK / MODIFICATION REQUESTED**\n\n${(note || 'Assigner requested modifications/re-work on the submitted deliverables.').trim()}`,
+      mentions: [],
+      attachments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    db.activityLogs.unshift({
+      _id: db.generateId('act'),
+      actorId: user._id,
+      action: 'TASK_REWORK_REQUESTED',
+      resourceType: 'TASK',
+      resourceId: task._id,
+      metadata: { taskId: task.taskId, note },
+      createdAt: new Date().toISOString()
+    });
+
+    task.assignedTo.forEach(assigneeId => {
+      if (assigneeId !== user._id) {
+        db.notifications.unshift({
+          _id: db.generateId('notif'),
+          recipientId: assigneeId,
+          type: 'STATUS_CHANGED',
+          title: `⚠️ Re-work Requested: ${task.taskId}`,
+          message: `${user.name.en} requested modifications on "${task.title}". Check notes for details.`,
+          resourceType: 'TASK',
+          resourceId: task._id,
+          isRead: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+    });
+  } else if (action === 'REJECT') {
+    task.status = 'REJECTED';
+    task.approvalStatus = 'REJECTED';
+    task.updatedAt = new Date().toISOString();
+
+    const pendingAppr = db.approvals.find(a => a.resourceId === task._id && a.status === 'PENDING');
+    if (pendingAppr) {
+      pendingAppr.status = 'REJECTED';
+      pendingAppr.updatedAt = new Date().toISOString();
+      pendingAppr.reason = note || 'Submission rejected by assigner.';
+    }
+
+    db.comments.push({
+      _id: db.generateId('cmt'),
+      taskId: task._id,
+      userId: user._id,
+      content: `❌ **SUBMISSION REJECTED**\n\n${(note || 'Assigner rejected the submitted deliverables.').trim()}`,
+      mentions: [],
+      attachments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    task.assignedTo.forEach(assigneeId => {
+      if (assigneeId !== user._id) {
+        db.notifications.unshift({
+          _id: db.generateId('notif'),
+          recipientId: assigneeId,
+          type: 'APPROVAL_COMPLETED',
+          title: `❌ Submission Rejected: ${task.taskId}`,
+          message: `Your work submission for "${task.title}" was rejected by ${user.name.en}.`,
+          resourceType: 'TASK',
+          resourceId: task._id,
+          isRead: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+    });
+  } else if (action === 'REFER') {
+    let level: 'DEPT_HEAD' | 'CEO' | 'TRUSTEE' = 'DEPT_HEAD';
+    if (targetLevel) {
+      level = targetLevel as any;
+    } else if (userRole === 'CEO') {
+      level = 'TRUSTEE';
+    } else if (userRole === 'DEPT_HEAD') {
+      level = 'CEO';
+    } else {
+      level = 'DEPT_HEAD';
+    }
+
+    let approverId: string | null = null;
+    if (level === 'TRUSTEE') {
+      const trustee = db.users.find(u => u.role === 'TRUSTEE' && u.isActive);
+      approverId = trustee?._id || user._id;
+    } else if (level === 'CEO') {
+      const ceo = db.users.find(u => u.role === 'CEO' && u.isActive);
+      approverId = ceo?._id || user._id;
+    } else {
+      const dept = db.departments.find(d => d._id === task.departmentId);
+      approverId = dept?.headId || user._id;
+    }
+
+    const newApproval = {
+      _id: db.generateId('appr'),
+      title: `Escalated Approval for Task: ${task.title}`,
+      description: note || `Assigner ${user.name.en} referred task ${task.taskId} for higher approval.`,
+      requesterId: user._id,
+      approverId,
+      departmentId: task.departmentId,
+      status: 'PENDING',
+      level,
+      resourceType: 'TASK',
+      resourceId: task._id,
+      referredBy: user._id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    db.approvals.unshift(newApproval as any);
+
     task.status = 'IN_REVIEW';
     task.approvalStatus = 'PENDING';
+    task.updatedAt = new Date().toISOString();
 
-    // Create approval record for requester/creator
-    const approverId = task.requestedBy || task.createdBy;
-    if (approverId) {
-      db.approvals.unshift({
-        _id: db.generateId('appr'),
-        title: `Work Approval for ${task.taskId}: ${task.title}`,
-        description: note || `Assignee submitted deliverables for task ${task.taskId}.`,
-        requesterId: req.user!._id,
-        approverId,
-        departmentId: task.departmentId,
-        status: 'PENDING',
-        resourceType: 'TASK',
-        resourceId: task._id,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-
-    db.activityLogs.unshift({
-      _id: db.generateId('act'),
-      actorId: req.user!._id,
-      action: 'TASK_SUBMITTED_FOR_REVIEW',
-      resourceType: 'TASK',
-      resourceId: task._id,
-      metadata: { taskId: task.taskId, noteSnippet: (note || '').slice(0, 60), attachmentsCount: newAttachments.length },
-      createdAt: new Date().toISOString()
+    db.comments.push({
+      _id: db.generateId('cmt'),
+      taskId: task._id,
+      userId: user._id,
+      content: `🏛️ **REFERRED TO UPPER HIERARCHY (${level})**\n\n${(note || `Referred to ${level} for final review and approval.`).trim()}`,
+      mentions: [],
+      attachments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
 
-    const recipientId = task.requestedBy || task.createdBy;
-    if (recipientId && recipientId !== req.user?._id) {
-      db.notifications.unshift({
-        _id: db.generateId('notif'),
-        recipientId,
-        type: 'STATUS_CHANGED',
-        title: `Work Submitted for Review: ${task.taskId}`,
-        message: `${req.user?.name.en} submitted work & deliverables for "${task.title}".`,
-        resourceType: 'TASK',
-        resourceId: task._id,
-        isRead: false,
-        createdAt: new Date().toISOString()
+    if (level === 'TRUSTEE') {
+      const allTrustees = db.users.filter(u => u.role === 'TRUSTEE' && u.isActive);
+      allTrustees.forEach(t => {
+        db.notifications.unshift({
+          _id: db.generateId('notif'),
+          recipientId: t._id,
+          type: 'APPROVAL_REQUESTED',
+          title: `🏛️ Escalated Task Approval: ${task.taskId}`,
+          message: `${user.name.en} referred task "${task.title}" to Trustee Board for final approval.`,
+          resourceType: 'TASK',
+          resourceId: task._id,
+          isRead: false,
+          createdAt: new Date().toISOString()
+        });
       });
-    }
-  } else {
-    // Auto-complete!
-    task.status = 'COMPLETED';
-    task.completedAt = new Date().toISOString();
-
-    db.activityLogs.unshift({
-      _id: db.generateId('act'),
-      actorId: req.user!._id,
-      action: 'TASK_SUBMITTED_AND_COMPLETED',
-      resourceType: 'TASK',
-      resourceId: task._id,
-      metadata: { taskId: task.taskId, noteSnippet: (note || '').slice(0, 60), attachmentsCount: newAttachments.length },
-      createdAt: new Date().toISOString()
-    });
-
-    const recipientId = task.requestedBy || task.createdBy;
-    if (recipientId && recipientId !== req.user?._id) {
+    } else if (approverId) {
       db.notifications.unshift({
         _id: db.generateId('notif'),
-        recipientId,
-        type: 'TASK_COMPLETED',
-        title: `Task Completed & Work Submitted: ${task.taskId}`,
-        message: `${req.user?.name.en} completed "${task.title}" and submitted deliverables.`,
+        recipientId: approverId,
+        type: 'APPROVAL_REQUESTED',
+        title: `🏛️ Escalated Task Approval: ${task.taskId}`,
+        message: `${user.name.en} referred task "${task.title}" to you for final approval.`,
         resourceType: 'TASK',
         resourceId: task._id,
         isRead: false,
