@@ -24,7 +24,10 @@ export type NavTab =
   | 'documents'
   | 'announcements'
   | 'events'
-  | 'performance';
+  | 'performance'
+  | 'activity-logs';
+
+
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -177,6 +180,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isStaff && (
             <NavBtn tab="reports" icon={BarChart3} label={isDeptHead ? 'Dept Task Reports' : 'Reports & Matrix'} />
           )}
+
+          {user?.role === 'SUPER_ADMIN' && (
+            <NavBtn tab="activity-logs" icon={ShieldAlert} label="Activity Logs" />
+          )}
         </div>
 
         {/* Communication — everyone */}
@@ -186,6 +193,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <NavBtn tab="announcements" icon={Megaphone} label="Announcements" />
           <NavBtn tab="events" icon={CalendarDays} label="Museum Events" />
         </div>
+
+
 
       </div>
 
