@@ -7,9 +7,10 @@ import { PriorityBadge } from '../common/PriorityBadge';
 import { UserAvatar } from '../common/UserAvatar';
 import { 
   X, Check, Plus, Paperclip, Send, Clock, Calendar, 
-  Building, Copy, CheckCircle2, ChevronRight, FileText, ArrowRight, ShieldCheck, Trash2
+  Building, Copy, CheckCircle2, ChevronRight, FileText, ArrowRight, ShieldCheck, Trash2, Download, Printer
 } from 'lucide-react';
 import { SubmitWorkModal } from './SubmitWorkModal';
+import { downloadTaskPdf } from '../../utils/pdfGenerator';
 
 interface TaskDetailModalProps {
   taskId: string | null;
@@ -41,6 +42,47 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   // Submit Work Modal State
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+
+  const isAssignee = Array.isArray(task?.assignedTo) && user?._id ? task.assignedTo.includes(user._id) : false;
+
+  const handleDownloadAttachment = async (url: string, name: string) => {
+    if (!url) return;
+    try {
+      if (url.startsWith('data:')) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name || 'attachment';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Network error');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = name || 'attachment';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      // Fallback for legacy mock URLs or cross-domain restrictions
+      const content = `Liberation War Museum - Directive Attachment\n\nFilename: ${name}\nSource URL: ${url}\nDownloaded: ${new Date().toLocaleString()}`;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = name.includes('.') ? name : `${name}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    }
+  };
 
   const fetchTaskDetails = async () => {
     if (!taskId) return;
@@ -144,16 +186,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     if (!file || !task) return;
 
     try {
-      const fakeUrl = `https://documents.lwmbd.org/${encodeURIComponent(file.name)}`;
-      const updated = await api.tasks.addAttachment(task._id, {
-        name: file.name,
-        size: file.size,
-        type: file.type || 'application/octet-stream',
-        url: fakeUrl
-      });
-      setTask(updated);
-      onTaskUpdated?.();
-      fetchTaskDetails();
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        const updated = await api.tasks.addAttachment(task._id, {
+          name: file.name,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+          url: dataUrl
+        });
+        setTask(updated);
+        onTaskUpdated?.();
+        fetchTaskDetails();
+      };
+      reader.readAsDataURL(file);
     } catch (err: any) {
       alert(err.message || 'Failed to upload attachment');
     }
@@ -198,6 +244,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {task && (
+              <button
+                type="button"
+                onClick={() => downloadTaskPdf(task, task.creator || task.requester || user, task.assignees || [])}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors border border-slate-200 dark:border-slate-700"
+                title="Download Task Particulars PDF"
+              >
+                <Printer className="w-3.5 h-3.5 text-red-700 dark:text-red-400" />
+                <span>Task PDF</span>
+              </button>
+            )}
+
             {task && (user?.role === 'SUPER_ADMIN' || user?.role === 'CEO') && (
               <button
                 type="button"
@@ -263,12 +321,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </select>
               </div>
 
-              {/* Submit Work Action Button */}
-              {task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
+              {/* Submit Work Action Button — Restricted to assigned receivers only */}
+              {isAssignee && task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
                 <button
                   type="button"
                   onClick={() => setIsSubmitModalOpen(true)}
-                  className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-1.5 transition-colors"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{task.requiresApproval ? 'Submit Work for Review' : 'Submit Work & Auto-Complete'}</span>
@@ -635,14 +693,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                               </div>
                             </div>
                           </div>
-                          <a
-                            href={att.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-semibold text-red-700 dark:text-red-400 hover:underline shrink-0"
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadAttachment(att.url, att.name)}
+                            className="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 transition-colors flex items-center gap-1.5 shrink-0"
+                            title="Download Attachment File"
                           >
-                            View
-                          </a>
+                            <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                            <span>Download</span>
+                          </button>
                         </div>
                       ))}
                     </div>
