@@ -273,14 +273,16 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         uploadedAttachments = fileQueue.filter(f => f.status === 'done').map(f => f.result!);
       }
 
-      // 2. Route by hierarchy: a higher-level recipient receives a request, otherwise this is a direct assignment.
+      // 2. Route cross-department work or requests through Department Head
       const finalDeptId = targetDepartmentId || departmentId || user?.departmentId;
-      if (primaryAssignee && targetEmployee && isHigherLevel(user, targetEmployee)) {
+      const isCrossDept = finalDeptId && user?.departmentId && finalDeptId !== user.departmentId;
+
+      if (isCrossDept || (primaryAssignee && targetEmployee && isHigherLevel(user, targetEmployee))) {
         const request = await api.taskRequests.create({
           title: title.trim(),
           description: description.trim(),
-          targetEmployeeId: primaryAssignee,
-          targetDepartmentId: targetEmployee.departmentId || finalDeptId,
+          targetEmployeeId: primaryAssignee || undefined,
+          targetDepartmentId: finalDeptId,
           priority,
           dueDate,
           attachments: uploadedAttachments
