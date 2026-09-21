@@ -66,7 +66,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
       };
 
       if (mode === 'my' && user) {
-        params.assignee = user._id;
+        params.myTasks = 'true';
       }
 
       const res = await api.tasks.list(params);
