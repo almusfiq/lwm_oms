@@ -19,6 +19,7 @@ import { EventsPage } from './pages/EventsPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { PerformancePage } from './pages/PerformancePage';
 import { ActivityLogsPage } from './pages/ActivityLogsPage';
+import { CalendarPage } from './pages/CalendarPage';
 import { LoginPage } from './pages/LoginPage';
 
 
@@ -164,6 +165,12 @@ function MainApp() {
           {currentTab === 'requests' && (
             <TaskRequestsPage
               onOpenCreateRequest={() => setIsCreateRequestOpen(true)}
+              onOpenTaskDetail={setActiveTaskId}
+            />
+          )}
+
+          {currentTab === 'calendar' && (
+            <CalendarPage
               onOpenTaskDetail={setActiveTaskId}
             />
           )}
