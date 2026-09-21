@@ -63,6 +63,40 @@ documentRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Response)
   };
 
   db.documents.unshift(newDoc);
+  db.logActivity({
+    actorId: req.user!._id,
+    action: 'UPLOAD_DOCUMENT',
+    module: 'DOCUMENTS',
+    description: `Uploaded archival document "${newDoc.name}"`,
+    resourceType: 'DOCUMENT',
+    resourceId: newDoc._id,
+    resourceName: newDoc.name,
+    ipAddress: req.ip || '127.0.0.1',
+    metadata: { fileName: newDoc.name, size: newDoc.size, isConfidential: newDoc.isConfidential }
+  });
   db.save();
   res.status(201).json({ success: true, data: newDoc });
+});
+
+documentRoutes.delete('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const docIdx = db.documents.findIndex(d => d._id === req.params.id);
+  if (docIdx === -1) {
+    res.status(404).json({ success: false, message: 'Document not found' });
+    return;
+  }
+
+  const doc = db.documents[docIdx];
+  db.documents.splice(docIdx, 1);
+  db.logActivity({
+    actorId: req.user!._id,
+    action: 'DELETE_DOCUMENT',
+    module: 'DOCUMENTS',
+    description: `Deleted archival document "${doc.name}"`,
+    resourceType: 'DOCUMENT',
+    resourceId: doc._id,
+    resourceName: doc.name,
+    ipAddress: req.ip || '127.0.0.1'
+  });
+  db.save();
+  res.json({ success: true, message: `Document ${doc.name} deleted successfully.` });
 });
