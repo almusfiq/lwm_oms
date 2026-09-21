@@ -532,9 +532,45 @@ export const api = {
   },
 
   activityLogs: {
-    list: async () => {
-      const res = await fetch(`${API_BASE}/activity-logs`, { headers: getAuthHeader() });
-      return handleResponse<any[]>(res);
+    list: async (params?: { 
+      search?: string; 
+      module?: string; 
+      action?: string; 
+      userId?: string; 
+      startDate?: string; 
+      endDate?: string; 
+      page?: number; 
+      limit?: number 
+    }) => {
+      const query = new URLSearchParams();
+      if (params?.search) query.append('search', params.search);
+      if (params?.module) query.append('module', params.module);
+      if (params?.action) query.append('action', params.action);
+      if (params?.userId) query.append('userId', params.userId);
+      if (params?.startDate) query.append('startDate', params.startDate);
+      if (params?.endDate) query.append('endDate', params.endDate);
+      if (params?.page) query.append('page', String(params.page));
+      if (params?.limit) query.append('limit', String(params.limit));
+
+      const res = await fetch(`${API_BASE}/activity-logs?${query.toString()}`, { headers: getAuthHeader() });
+      return handleResponse<{ items: any[]; total: number; page: number; limit: number; totalPages: number }>(res);
+    },
+    getStats: async () => {
+      const res = await fetch(`${API_BASE}/activity-logs/stats`, { headers: getAuthHeader() });
+      return handleResponse<{
+        totalLogs: number;
+        failedLoginsCount: number;
+        activeUsersTodayCount: number;
+        todayTotalEvents: number;
+        moduleCounts: Record<string, number>;
+      }>(res);
+    },
+    clear: async () => {
+      const res = await fetch(`${API_BASE}/activity-logs/clear`, {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      return handleResponse<any>(res);
     }
   },
 
