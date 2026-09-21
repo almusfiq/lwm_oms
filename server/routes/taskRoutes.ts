@@ -45,7 +45,7 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   } = req.query;
 
   const now = new Date().toISOString().split('T')[0];
-  let filtered = [...db.tasks];
+  let filtered = db.tasks.filter(t => !t.isDeleted && !(t as any).deleted);
 
   // 1. Role-based baseline visibility filtering:
   // - Trustee & CEO: Can see all tasks across the museum.
