@@ -21,11 +21,6 @@ userRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
     if (!isSuperAdmin && (activeOnly === 'true' || activeOnly === undefined)) {
       list = list.filter(u => u.isActive);
     }
-
-    if (!isSuperAdmin && !isTrustee && !isCEO && req.user.departmentId) {
-      const callerDeptId = resolveDepartmentId(req.user.departmentId, db.departments) || req.user.departmentId;
-      list = list.filter(u => u.departmentId === callerDeptId);
-    }
   }
 
   if (departmentId && typeof departmentId === 'string') {
