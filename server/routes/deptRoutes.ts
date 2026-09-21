@@ -129,6 +129,16 @@ deptRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Response) => 
   };
 
   db.departments.push(newDept);
+  db.logActivity({
+    actorId: req.user!._id,
+    action: 'CREATE_DEPARTMENT',
+    module: 'DEPARTMENTS',
+    description: `Created operational department ${newDept.name.en} (${newDept.code})`,
+    resourceType: 'DEPARTMENT',
+    resourceId: newDept._id,
+    resourceName: `${newDept.code} - ${newDept.name.en}`,
+    ipAddress: req.ip || '127.0.0.1'
+  });
   db.save();
 
   res.status(201).json({ success: true, data: newDept });
@@ -160,6 +170,16 @@ deptRoutes.patch('/:id', requireAuth, (req: AuthenticatedRequest, res: Response)
   if (isActive !== undefined) dept.isActive = Boolean(isActive);
 
   dept.updatedAt = new Date().toISOString();
+  db.logActivity({
+    actorId: req.user!._id,
+    action: 'UPDATE_DEPARTMENT',
+    module: 'DEPARTMENTS',
+    description: `Updated operational department ${dept.name.en} (${dept.code})`,
+    resourceType: 'DEPARTMENT',
+    resourceId: dept._id,
+    resourceName: `${dept.code} - ${dept.name.en}`,
+    ipAddress: req.ip || '127.0.0.1'
+  });
   db.save();
 
   res.json({ success: true, data: dept });
@@ -180,6 +200,16 @@ deptRoutes.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Re
   }
 
   const targetDept = db.departments[idx];
+  db.logActivity({
+    actorId: req.user!._id,
+    action: 'DELETE_DEPARTMENT',
+    module: 'DEPARTMENTS',
+    description: `Permanently deleted department ${targetDept.name.en} (${targetDept.code})`,
+    resourceType: 'DEPARTMENT',
+    resourceId: targetDept._id,
+    resourceName: `${targetDept.code} - ${targetDept.name.en}`,
+    ipAddress: req.ip || '127.0.0.1'
+  });
   await db.deleteDepartmentFromDb(targetDept._id);
   res.json({ success: true, message: `Department ${targetDept.name.en} deleted successfully.` });
 });
