@@ -7,7 +7,8 @@ import { PriorityBadge } from '../common/PriorityBadge';
 import { UserAvatar } from '../common/UserAvatar';
 import { 
   X, Check, Plus, Paperclip, Send, Clock, Calendar, 
-  Building, Copy, CheckCircle2, ChevronRight, FileText, ArrowRight, ShieldCheck, Trash2, Download, Printer
+  Building, Copy, CheckCircle2, ChevronRight, FileText, ArrowRight, ShieldCheck, Trash2, Download, Printer,
+  RotateCcw, XCircle, ArrowUpRight, Sparkles
 } from 'lucide-react';
 import { SubmitWorkModal } from './SubmitWorkModal';
 import { downloadTaskPdf } from '../../utils/pdfGenerator';
@@ -43,7 +44,21 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   // Submit Work Modal State
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
+  // Assigner Review State
+  const [reviewAction, setReviewAction] = useState<'APPROVE' | 'MODIFY' | 'REJECT' | 'REFER' | null>(null);
+  const [reviewNote, setReviewNote] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
   const isAssignee = Array.isArray(task?.assignedTo) && user?._id ? task.assignedTo.includes(user._id) : false;
+  const isAssigner = Boolean(
+    user?._id && (
+      task?.createdBy === user._id ||
+      task?.requestedBy === user._id ||
+      user?.role === 'DEPT_HEAD' ||
+      user?.role === 'CEO' ||
+      user?.role === 'SUPER_ADMIN'
+    )
+  );
 
   const handleDownloadAttachment = async (url: string, name: string) => {
     if (!url) return;
@@ -81,6 +96,34 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(blobUrl);
+    }
+  };
+
+  const handleReviewTask = async (action: 'APPROVE' | 'MODIFY' | 'REJECT' | 'REFER', customNote?: string) => {
+    if (!task) return;
+    setReviewSubmitting(true);
+    try {
+      const targetLevel =
+        user?.role === 'CEO'
+          ? 'TRUSTEE'
+          : user?.role === 'DEPT_HEAD'
+            ? 'CEO'
+            : 'DEPT_HEAD';
+
+      const updated = await api.tasks.review(task._id, {
+        action,
+        note: customNote !== undefined ? customNote : reviewNote,
+        targetLevel
+      });
+      setTask(updated);
+      setReviewAction(null);
+      setReviewNote('');
+      onTaskUpdated?.();
+      fetchTaskDetails();
+    } catch (err: any) {
+      alert(err.message || 'Review action failed.');
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -299,6 +342,73 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Assigner Decision & Review Action Bar */}
+            {isAssigner && task.status === 'IN_REVIEW' && (
+              <div className="mx-6 my-3 p-4 bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-amber-500/10 dark:from-emerald-950/40 dark:to-purple-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Work Submitted for Assigner Review & Decision</span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                    Review submitted deliverables and confirm decision below.
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* 1. Approve */}
+                  <button
+                    type="button"
+                    onClick={() => handleReviewTask('APPROVE')}
+                    disabled={reviewSubmitting}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Approve</span>
+                  </button>
+
+                  {/* 2. Modify */}
+                  <button
+                    type="button"
+                    onClick={() => { setReviewAction('MODIFY'); setReviewNote(''); }}
+                    disabled={reviewSubmitting}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Modify</span>
+                  </button>
+
+                  {/* 3. Reject */}
+                  <button
+                    type="button"
+                    onClick={() => handleReviewTask('REJECT')}
+                    disabled={reviewSubmitting}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-700 text-white shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Reject</span>
+                  </button>
+
+                  {/* 4. Refer to Upper Hierarchy */}
+                  <button
+                    type="button"
+                    onClick={() => { setReviewAction('REFER'); setReviewNote(''); }}
+                    disabled={reviewSubmitting}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    <ArrowUpRight className="w-4 h-4" />
+                    <span>
+                      {user?.role === 'CEO'
+                        ? 'Refer to Trustee'
+                        : user?.role === 'DEPT_HEAD'
+                          ? 'Refer to CEO'
+                          : 'Refer to Dept Head'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Quick Status & Progress Action Bar */}
             <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/40 border-y border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
@@ -744,19 +854,78 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         )}
       </div>
 
-      {/* Submit Work Modal */}
-      {task && (
-        <SubmitWorkModal
-          isOpen={isSubmitModalOpen}
-          task={task}
-          onClose={() => setIsSubmitModalOpen(false)}
-          onSubmitted={(updatedTask) => {
-            setTask(updatedTask);
-            onTaskUpdated?.();
-            fetchTaskDetails();
-          }}
-        />
-      )}
-    </div>
-  );
-};
+        {/* Submit Work Modal */}
+        {isSubmitModalOpen && task && (
+          <SubmitWorkModal
+            isOpen={isSubmitModalOpen}
+            task={task}
+            onClose={() => setIsSubmitModalOpen(false)}
+            onSubmitted={(updatedTask) => {
+              setTask(updatedTask);
+              setIsSubmitModalOpen(false);
+              onTaskUpdated?.();
+              fetchTaskDetails();
+            }}
+          />
+        )}
+
+        {/* Assigner Rework / Referral Modal */}
+        {reviewAction && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
+                  {reviewAction === 'MODIFY'
+                    ? 'Request Task Modification / Re-work'
+                    : `Refer Task to ${
+                        user?.role === 'CEO'
+                          ? 'Trustee Board'
+                          : user?.role === 'DEPT_HEAD'
+                            ? 'CEO'
+                            : 'Department Head'
+                      }`}
+                </h3>
+                <button type="button" onClick={() => setReviewAction(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500">
+                {reviewAction === 'MODIFY'
+                  ? 'Provide specific instructions or feedback on what the assigned user needs to modify.'
+                  : 'Add optional referral notes before escalating to upper hierarchy for final approval.'}
+              </p>
+
+              <textarea
+                rows={4}
+                value={reviewNote}
+                onChange={e => setReviewNote(e.target.value)}
+                placeholder={reviewAction === 'MODIFY' ? 'Explain what needs to be changed or improved...' : 'Add notes for upper hierarchy review...'}
+                className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
+              />
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setReviewAction(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={reviewSubmitting || (reviewAction === 'MODIFY' && !reviewNote.trim())}
+                  onClick={() => handleReviewTask(reviewAction, reviewNote)}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-xs disabled:opacity-50 transition-colors ${
+                    reviewAction === 'MODIFY' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-purple-600 hover:bg-purple-700'
+                  }`}
+                >
+                  {reviewSubmitting ? 'Submitting...' : reviewAction === 'MODIFY' ? 'Submit Rework Request' : 'Confirm Referral'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
