@@ -127,15 +127,16 @@ projectRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Response) 
 
     db.projects.unshift(newProject);
 
-    // Activity Log
-    db.activityLogs.unshift({
-      _id: db.generateId('act'),
+    db.logActivity({
       actorId: req.user!._id,
-      action: 'PROJECT_CREATED',
+      action: 'CREATE_PROJECT',
+      module: 'PROJECTS',
+      description: `Initiated strategic project ${newProject.projectId}: "${newProject.name}"`,
       resourceType: 'PROJECT',
       resourceId: newProject._id,
-      metadata: { name: newProject.name, projectId: newProject.projectId },
-      createdAt: new Date().toISOString()
+      resourceName: `${newProject.projectId} - ${newProject.name}`,
+      ipAddress: req.ip || '127.0.0.1',
+      metadata: { name: newProject.name, projectId: newProject.projectId, priority: newProject.priority }
     });
 
     db.save();
