@@ -115,7 +115,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     </span>
                     {task.project && (
                       <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-medium truncate max-w-[140px]">
-                        {task.project.name}
+                        {typeof task.project.name === 'object' ? (task.project.name as any).en : task.project.name}
                       </span>
                     )}
                   </div>
