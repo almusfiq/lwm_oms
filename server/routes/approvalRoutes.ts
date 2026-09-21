@@ -224,11 +224,13 @@ approvalRoutes.post('/:id/approve', requireAuth, (req: AuthenticatedRequest, res
 
   const viewer = req.user!;
 
-  // Any active trustee can approve TRUSTEE-level approvals
+  // Any active trustee can approve TRUSTEE-level approvals; Super Admin or assigned approver can also approve
   const canApprove =
+    viewer.role === 'SUPER_ADMIN' ||
     (viewer.role === 'TRUSTEE' && approval.level === 'TRUSTEE') ||
     (viewer.role === 'CEO' && approval.level === 'CEO') ||
-    (viewer.role === 'DEPT_HEAD' && approval.level === 'DEPT_HEAD' && approval.approverId === viewer._id);
+    (viewer.role === 'DEPT_HEAD' && approval.level === 'DEPT_HEAD' && approval.approverId === viewer._id) ||
+    approval.approverId === viewer._id;
 
   if (!canApprove) {
     res.status(403).json({ success: false, message: 'You are not authorized to approve this request.' });
@@ -249,7 +251,13 @@ approvalRoutes.post('/:id/approve', requireAuth, (req: AuthenticatedRequest, res
 
   if (approval.resourceType === 'TASK' && approval.resourceId) {
     const task = db.tasks.find(t => t._id === approval.resourceId);
-    if (task) { task.approvalStatus = 'APPROVED'; task.updatedAt = new Date().toISOString(); }
+    if (task) { 
+      task.status = 'COMPLETED'; 
+      task.progress = 100;
+      task.approvalStatus = 'APPROVED'; 
+      task.completedAt = new Date().toISOString();
+      task.updatedAt = new Date().toISOString(); 
+    }
   }
 
   // Notify requester
@@ -294,9 +302,11 @@ approvalRoutes.post('/:id/reject', requireAuth, (req: AuthenticatedRequest, res:
 
   const viewer = req.user!;
   const canReject =
+    viewer.role === 'SUPER_ADMIN' ||
     (viewer.role === 'TRUSTEE' && approval.level === 'TRUSTEE') ||
     (viewer.role === 'CEO' && approval.level === 'CEO') ||
-    (viewer.role === 'DEPT_HEAD' && approval.level === 'DEPT_HEAD' && approval.approverId === viewer._id);
+    (viewer.role === 'DEPT_HEAD' && approval.level === 'DEPT_HEAD' && approval.approverId === viewer._id) ||
+    approval.approverId === viewer._id;
 
   if (!canReject) {
     res.status(403).json({ success: false, message: 'You are not authorized to reject this request.' });
@@ -316,7 +326,11 @@ approvalRoutes.post('/:id/reject', requireAuth, (req: AuthenticatedRequest, res:
 
   if (approval.resourceType === 'TASK' && approval.resourceId) {
     const task = db.tasks.find(t => t._id === approval.resourceId);
-    if (task) { task.approvalStatus = 'REJECTED'; task.updatedAt = new Date().toISOString(); }
+    if (task) { 
+      task.status = 'REJECTED'; 
+      task.approvalStatus = 'REJECTED'; 
+      task.updatedAt = new Date().toISOString(); 
+    }
   }
 
   db.notifications.unshift({
