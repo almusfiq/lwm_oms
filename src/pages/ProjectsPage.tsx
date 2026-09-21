@@ -16,6 +16,15 @@ interface ProjectsPageProps {
   onOpenCreateTaskForProject?: (projectId: string) => void;
 }
 
+const getLocalizedText = (val: any, fallback = ''): string => {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    return val.en || val.bn || fallback;
+  }
+  return String(val);
+};
+
 export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   onOpenTaskDetail,
   onOpenCreateTaskForProject
@@ -38,7 +47,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     setLoading(true);
     try {
       const list = await api.projects.list();
-      setProjects(list);
+      setProjects(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -53,8 +62,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   const handleSelectProject = async (p: Project) => {
     setSelectedProject(p);
     try {
-      const data = await api.projects.get(p._id);
-      setProjectTasks(data.tasks || []);
+      const res = await api.projects.get(p._id);
+      if (res) {
+        if (res.project) setSelectedProject(res.project);
+        setProjectTasks(Array.isArray(res.tasks) ? res.tasks : []);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -120,64 +132,70 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         ) : projects.length === 0 ? (
           <div className="col-span-full p-12 text-center text-slate-400">No active projects found.</div>
         ) : (
-          projects.map(p => (
-            <div
-              key={p._id}
-              onClick={() => handleSelectProject(p)}
-              className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-all flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="font-mono text-xs font-bold text-slate-500">
-                    {p.projectId}
-                  </span>
-                  <PriorityBadge priority={p.priority} />
+          projects.map(p => {
+            const managerName = getLocalizedText(p.manager?.name, 'Project Lead');
+            const projectName = getLocalizedText(p.name, 'Untitled Project');
+            const projectDesc = getLocalizedText(p.description, '');
+
+            return (
+              <div
+                key={p._id}
+                onClick={() => handleSelectProject(p)}
+                className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="font-mono text-xs font-bold text-slate-500">
+                      {p.projectId}
+                    </span>
+                    <PriorityBadge priority={p.priority} />
+                  </div>
+
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 line-clamp-2">
+                    {projectName}
+                  </h3>
+                  <p className="text-xs text-slate-500 line-clamp-2 mt-1">
+                    {projectDesc}
+                  </p>
+
+                  {/* Progress */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-medium text-slate-600 dark:text-slate-400">Completion</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{p.progress}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="bg-red-700 h-full rounded-full transition-all"
+                        style={{ width: `${p.progress}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Milestones count & stats */}
+                  <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+                    <span>🎯 {p.milestones?.length || 0} Milestones</span>
+                    <span>📋 {p.stats?.totalTasks || 0} Directives</span>
+                  </div>
                 </div>
 
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 line-clamp-2">
-                  {p.name}
-                </h3>
-                <p className="text-xs text-slate-500 line-clamp-2 mt-1">
-                  {p.description}
-                </p>
-
-                {/* Progress */}
-                <div className="mt-4">
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-medium text-slate-600 dark:text-slate-400">Completion</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{p.progress}%</span>
+                {/* Manager & Deadline */}
+                <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <UserAvatar name={p.manager?.name || 'Project Lead'} role={p.manager?.role} size="sm" />
+                    <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
+                      {managerName}
+                    </span>
                   </div>
-                  <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="bg-red-700 h-full rounded-full transition-all"
-                      style={{ width: `${p.progress}%` }}
-                    />
-                  </div>
-                </div>
 
-                {/* Milestones count & stats */}
-                <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
-                  <span>🎯 {p.milestones?.length || 0} Milestones</span>
-                  <span>📋 {p.stats?.totalTasks || 0} Directives</span>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>{p.deadline}</span>
+                  </div>
                 </div>
               </div>
-
-              {/* Manager & Deadline */}
-              <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <UserAvatar name={p.manager?.name || 'Manager'} role={p.manager?.role} size="sm" />
-                  <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
-                    {p.manager?.name.en}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1 text-slate-500">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>{p.deadline}</span>
-                </div>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -186,13 +204,13 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         <Modal
           isOpen={Boolean(selectedProject)}
           onClose={() => setSelectedProject(null)}
-          title={selectedProject.name}
-          subtitle={`Project Code: ${selectedProject.projectId} • Lead: ${selectedProject.manager?.name.en || 'Appointed Lead'}`}
+          title={getLocalizedText(selectedProject.name, 'Strategic Project')}
+          subtitle={`Project Code: ${selectedProject.projectId} • Lead: ${getLocalizedText(selectedProject.manager?.name, 'Appointed Lead')}`}
           maxWidth="3xl"
         >
           <div className="space-y-6">
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              {selectedProject.description}
+              {getLocalizedText(selectedProject.description, '')}
             </p>
 
             {/* Milestones */}
@@ -205,7 +223,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   <div key={m._id} className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className={`w-4 h-4 ${m.status === 'COMPLETED' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{m.name}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{getLocalizedText(m.name, 'Milestone')}</span>
                     </div>
                     <span className="text-slate-500">Target: {m.dueDate}</span>
                   </div>
@@ -245,7 +263,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-mono font-bold text-slate-500 shrink-0">{t.taskId}</span>
-                      <span className="font-medium text-slate-900 dark:text-slate-100 truncate">{t.title}</span>
+                      <span className="font-medium text-slate-900 dark:text-slate-100 truncate">{getLocalizedText(t.title, 'Directive')}</span>
                     </div>
                     <span className="text-slate-500 font-mono shrink-0 ml-2">{t.progress}%</span>
                   </div>
