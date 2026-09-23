@@ -8,6 +8,7 @@ export const taskRequestRoutes = Router();
 function populateRequest(r: TaskRequest) {
   const requester = db.users.find(u => u._id === r.requesterId);
   const targetEmployee = db.users.find(u => u._id === r.targetEmployeeId);
+  const suggestedEmployee = r.suggestedEmployeeId ? db.users.find(u => u._id === r.suggestedEmployeeId) : null;
   const requesterDept = db.departments.find(d => d._id === r.requesterDepartmentId);
   const targetDept = db.departments.find(d => d._id === r.targetDepartmentId);
   const convertedTask = r.convertedTaskId ? db.tasks.find(t => t._id === r.convertedTaskId) : null;
@@ -16,9 +17,18 @@ function populateRequest(r: TaskRequest) {
     ...r,
     requester: requester ? sanitizeUser(requester) : null,
     targetEmployee: targetEmployee ? sanitizeUser(targetEmployee) : null,
+    suggestedEmployee: suggestedEmployee ? sanitizeUser(suggestedEmployee) : null,
     requesterDepartment: requesterDept ? { _id: requesterDept._id, code: requesterDept.code, name: requesterDept.name } : null,
     targetDepartment: targetDept ? { _id: targetDept._id, code: targetDept.code, name: targetDept.name } : null,
-    convertedTask: convertedTask ? { _id: convertedTask._id, taskId: convertedTask.taskId, title: convertedTask.title, status: convertedTask.status } : null
+    convertedTask: convertedTask ? {
+      _id: convertedTask._id,
+      taskId: convertedTask.taskId,
+      title: convertedTask.title,
+      status: convertedTask.status,
+      progress: convertedTask.progress,
+      assignedTo: convertedTask.assignedTo,
+      assignees: convertedTask.assignedTo.map(id => db.users.find(u => u._id === id)).filter(Boolean).map(u => sanitizeUser(u!))
+    } : null
   };
 }
 
@@ -31,7 +41,7 @@ taskRequestRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Respons
 
   // Incoming to me vs Outgoing by me vs All
   if (type === 'incoming') {
-    list = list.filter(r => r.targetEmployeeId === currentUserId);
+    list = list.filter(r => r.targetEmployeeId === currentUserId || (req.user?.departmentId && r.targetDepartmentId === req.user.departmentId && (getEffectiveRole(req.user!) === 'DEPT_HEAD' || getEffectiveRole(req.user!) === 'DEPARTMENT_HEAD')));
   } else if (type === 'outgoing') {
     list = list.filter(r => r.requesterId === currentUserId);
   } else if (getEffectiveRole(req.user!) !== 'CEO' && getEffectiveRole(req.user!) !== 'TRUSTEE') {
@@ -79,31 +89,47 @@ taskRequestRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Respon
       dueDate, attachments = [] 
     } = req.body;
 
-    if (!targetEmployeeId || !title || !dueDate) {
-      res.status(400).json({ success: false, message: 'Target employee, title, and deadline are required' });
-      return;
-    }
-
-    const targetUser = db.users.find(u => u._id === targetEmployeeId);
-    if (!targetUser || !targetUser.isActive) {
-      res.status(404).json({ success: false, message: 'Target employee is invalid or inactive' });
-      return;
-    }
-
-    if (!isHigherLevel(req.user, targetUser)) {
-      res.status(400).json({ success: false, message: 'Task requests must be sent to a higher-level recipient.' });
+    if (!title || !dueDate) {
+      res.status(400).json({ success: false, message: 'Title and deadline are required' });
       return;
     }
 
     const requesterDeptId = resolveDepartmentId(req.user?.departmentId, db.departments) || 'dept_admin';
-    const finalTargetDeptId = resolveDepartmentId(targetDepartmentId || targetUser.departmentId, db.departments) || 'dept_admin';
+    let targetUser = targetEmployeeId ? db.users.find(u => u._id === targetEmployeeId) : null;
+    let finalTargetDeptId = resolveDepartmentId(targetDepartmentId || targetUser?.departmentId, db.departments) || requesterDeptId;
+
+    let primaryTargetEmployeeId = targetEmployeeId;
+    let suggestedEmployeeId: string | undefined = undefined;
+
+    // Cross-department request logic: Route to Head of Target Department
+    if (finalTargetDeptId !== requesterDeptId) {
+      const targetDeptObj = db.departments.find(d => d._id === finalTargetDeptId);
+      let deptHead = targetDeptObj?.headId ? db.users.find(u => u._id === targetDeptObj.headId && u.isActive) : null;
+      if (!deptHead) {
+        deptHead = db.users.find(u => u.departmentId === finalTargetDeptId && (u.role === 'DEPT_HEAD' || u.role === 'DEPARTMENT_HEAD') && u.isActive) || null;
+      }
+
+      if (deptHead) {
+        if (targetUser && targetUser._id !== deptHead._id) {
+          suggestedEmployeeId = targetUser._id;
+        }
+        primaryTargetEmployeeId = deptHead._id;
+        targetUser = deptHead;
+      }
+    }
+
+    if (!primaryTargetEmployeeId || !targetUser || !targetUser.isActive) {
+      res.status(404).json({ success: false, message: 'Target employee or department head is invalid or inactive' });
+      return;
+    }
 
     const newRequest: TaskRequest = {
       _id: db.generateId('req'),
       requestId: db.getNextRequestId(),
       requesterId: req.user!._id,
       requesterDepartmentId: requesterDeptId,
-      targetEmployeeId,
+      targetEmployeeId: primaryTargetEmployeeId,
+      suggestedEmployeeId,
       targetDepartmentId: finalTargetDeptId,
       title,
       description,
@@ -132,12 +158,12 @@ taskRequestRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Respon
       createdAt: new Date().toISOString()
     });
 
-    // Notify target employee
+    // Notify target department head / employee
     db.notifications.unshift({
       _id: db.generateId('notif'),
-      recipientId: targetEmployeeId,
+      recipientId: primaryTargetEmployeeId,
       type: 'TASK_REQUEST',
-      title: `New Work Request: ${newRequest.requestId}`,
+      title: `Incoming Cross-Dept Request (${priority}): ${newRequest.requestId}`,
       message: `${req.user?.name.en} requested work: "${newRequest.title}".`,
       resourceType: 'TASK_REQUEST',
       resourceId: newRequest._id,
@@ -160,15 +186,20 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
     return;
   }
 
-  // Verification: current user must be target employee or authorized manager/CEO
+  // Verification: current user must be target employee or authorized manager/CEO/Dept Head
   const isTarget = req.user?._id === request.targetEmployeeId;
   const isExec = getEffectiveRole(req.user!) === 'CEO' || getEffectiveRole(req.user!) === 'TRUSTEE';
-  const isDeptHead = getEffectiveRole(req.user!) === 'DEPT_HEAD' && req.user?.departmentId === request.targetDepartmentId;
+  const isDeptHead = (getEffectiveRole(req.user!) === 'DEPT_HEAD' || getEffectiveRole(req.user!) === 'DEPARTMENT_HEAD') && req.user?.departmentId === request.targetDepartmentId;
 
   if (!isTarget && !isExec && !isDeptHead) {
     res.status(403).json({ success: false, message: 'Only the requested employee or department head can accept this request' });
     return;
   }
+
+  const { responseMessage, assignedToId } = req.body;
+  const finalAssigneeId = assignedToId || request.suggestedEmployeeId || request.targetEmployeeId;
+  const assignedUser = db.users.find(u => u._id === finalAssigneeId && u.isActive);
+  const actualAssigneeId = assignedUser ? assignedUser._id : request.targetEmployeeId;
 
   // Create real Task record!
   const newTask: Task = {
@@ -178,12 +209,12 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
     description: request.description,
     createdBy: request.requesterId,
     requestedBy: request.requesterId,
-    assignedTo: [request.targetEmployeeId],
-    collaborators: [request.requesterId],
+    assignedTo: [actualAssigneeId],
+    collaborators: [request.requesterId, req.user!._id],
     sourceDepartmentId: request.requesterDepartmentId,
     targetDepartmentId: request.targetDepartmentId,
     departmentId: request.targetDepartmentId,
-    status: 'ACCEPTED',
+    status: 'IN_PROGRESS',
     priority: request.priority,
     progress: 0,
     visibility: 'ORGANIZATION',
@@ -202,7 +233,8 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
   // Update request state
   request.status = 'CONVERTED_TO_TASK';
   request.convertedTaskId = newTask._id;
-  request.responseMessage = req.body.responseMessage || 'Request accepted and converted into active task.';
+  request.targetEmployeeId = actualAssigneeId;
+  request.responseMessage = responseMessage || `Request accepted by Department Head and assigned to ${assignedUser?.name.en || 'department staff'}.`;
   request.updatedAt = new Date().toISOString();
 
   // Activity Log
@@ -212,9 +244,24 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
     action: 'TASK_REQUEST_ACCEPTED',
     resourceType: 'TASK_REQUEST',
     resourceId: request._id,
-    metadata: { convertedTaskId: newTask.taskId },
+    metadata: { convertedTaskId: newTask.taskId, assignedTo: actualAssigneeId },
     createdAt: new Date().toISOString()
   });
+
+  // Notify assigned employee if different from Department Head
+  if (actualAssigneeId !== req.user!._id) {
+    db.notifications.unshift({
+      _id: db.generateId('notif'),
+      recipientId: actualAssigneeId,
+      type: 'TASK_ASSIGNED',
+      title: `Task Assigned by Department Head: ${newTask.taskId}`,
+      message: `${req.user?.name.en} assigned you to cross-department task "${request.title}".`,
+      resourceType: 'TASK',
+      resourceId: newTask._id,
+      isRead: false,
+      createdAt: new Date().toISOString()
+    });
+  }
 
   // Notify original requester
   db.notifications.unshift({
@@ -222,7 +269,7 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
     recipientId: request.requesterId,
     type: 'TASK_ACCEPTED',
     title: `Request Accepted: ${newTask.taskId}`,
-    message: `${req.user?.name.en} accepted your request "${request.title}". It is now active as ${newTask.taskId}.`,
+    message: `${req.user?.name.en} accepted your request "${request.title}" and assigned it to ${assignedUser?.name.en || 'department staff'}.`,
     resourceType: 'TASK',
     resourceId: newTask._id,
     isRead: false,
