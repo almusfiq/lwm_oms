@@ -115,4 +115,3 @@ export function checkRole(allowedRoles: UserRole[]) {
     next();
   };
 }
-
