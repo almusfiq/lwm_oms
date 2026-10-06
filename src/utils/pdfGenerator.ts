@@ -258,6 +258,7 @@ export function downloadTasksPdfReport({
   filterTypeName = 'Ongoing Tasks',
   tasks,
   generatedBy,
+  employee,
 }: {
   reportTitle: string;
   scopeName: string;
@@ -265,6 +266,7 @@ export function downloadTasksPdfReport({
   filterTypeName?: string;
   tasks: any[];
   generatedBy: any;
+  employee?: any;
 }) {
   const now = new Date().toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' });
 
@@ -336,7 +338,10 @@ export function downloadTasksPdfReport({
     <div>
       <h2 style="font-size: 18px; color: #7f1d1d;">${reportTitle}</h2>
       <div style="font-size: 11px; color: #475569; margin-top: 4px;">
-        Report Scope: <strong>${scopeName}</strong> ${departmentName ? `• Department: <strong>${departmentName}</strong>` : ''} • Category: <strong>${filterTypeName}</strong>
+        Report Scope: <strong>${scopeName}</strong> 
+        ${departmentName ? `• Department: <strong>${departmentName}</strong>` : ''} 
+        ${employee ? `• Employee: <strong>${employee.name?.en || employee.name || 'Personnel'} (${employee.designation?.en || employee.designation || employee.role || 'Staff'})</strong>` : ''} 
+        • Category: <strong>${filterTypeName}</strong>
       </div>
     </div>
     <div style="text-align: right; font-size: 10px; color: #64748b;">
@@ -354,12 +359,12 @@ export function downloadTasksPdfReport({
 
   <div class="signature-row" style="margin-top: 40px;">
     <div class="signature-box">
-      <div class="signature-name">${generatedBy?.name?.en || 'Report Generator'}</div>
-      <div class="signature-role">${generatedBy?.designation?.en || generatedBy?.role || 'Supervisory Authority'}</div>
+      <div class="signature-name">${employee?.name?.en || employee?.name || generatedBy?.name?.en || 'Report Generator'}</div>
+      <div class="signature-role">${employee?.designation?.en || employee?.designation || employee?.role || generatedBy?.designation?.en || 'Assigned Personnel'}</div>
       <div class="signature-date">Date: ${now.split(',')[0]}</div>
     </div>
     <div class="signature-box">
-      <div class="signature-name">Executive Verification</div>
+      <div class="signature-name">Supervisory / Directorate Verification</div>
       <div class="signature-role">Liberation War Museum Directorate</div>
       <div class="signature-date">Official Seal / Signature</div>
     </div>

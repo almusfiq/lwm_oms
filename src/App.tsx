@@ -22,6 +22,7 @@ import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { LoginPage } from './pages/LoginPage';
 import { MessagingPage } from './pages/MessagingPage';
+import { getUserRole, isDepartmentHead } from './utils/hierarchy';
 
 
 
@@ -65,6 +66,12 @@ function MainApp() {
   if (!user) {
     return <LoginPage />;
   }
+
+  const role = getUserRole(user);
+  const isTrustee = role === 'TRUSTEE';
+  const isCEO = role === 'CEO';
+  const isDeptHead = isDepartmentHead(user);
+  const isStaff = !isTrustee && !isCEO && !isDeptHead && role !== 'SUPER_ADMIN';
 
   const navigateToTabWithFilter = (tab: NavigationTab, filters: any = {}) => {
     setTaskFilters(filters);
@@ -220,7 +227,7 @@ function MainApp() {
 
           {currentTab === 'reports' && (
             <ReportsPage
-              onNavigateTasks={filters => navigateToTabWithFilter('all-tasks', filters)}
+              onNavigateTasks={filters => navigateToTabWithFilter(isStaff ? 'my-tasks' : 'all-tasks', filters)}
             />
           )}
 

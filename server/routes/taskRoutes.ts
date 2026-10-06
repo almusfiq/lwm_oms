@@ -6,7 +6,7 @@ import { Task, TaskComment, TaskAttachment, TaskChecklistItem } from '../types';
 export const taskRoutes = Router();
 
 // Helper to populate task details
-function populateTask(t: Task) {
+export function populateTask(t: Task) {
   const requester = t.requestedBy ? db.users.find(u => u._id === t.requestedBy) : null;
   const creator = db.users.find(u => u._id === t.createdBy);
   const assignees = t.assignedTo.map(id => db.users.find(u => u._id === id)).filter(Boolean).map(u => sanitizeUser(u!));
@@ -162,7 +162,7 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
 
   // 10. Pagination
   const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 20));
+  const limitNum = Math.min(2000, Math.max(1, parseInt(limit as string, 10) || 20));
   const total = filtered.length;
   const totalPages = Math.ceil(total / limitNum);
   const startIndex = (pageNum - 1) * limitNum;

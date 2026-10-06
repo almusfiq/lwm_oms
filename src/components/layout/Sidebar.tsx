@@ -180,8 +180,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <NavBtn tab="performance" icon={TrendingUp} label="Performance Scores" />
           )}
 
-          {!isStaff && !isSuperAdmin && (
-            <NavBtn tab="reports" icon={BarChart3} label={isDeptHead ? 'Dept Task Reports' : 'Reports & Matrix'} />
+          {!isSuperAdmin && (
+            <NavBtn
+              tab="reports"
+              icon={BarChart3}
+              label={isStaff ? 'My Work Report' : isDeptHead ? 'Dept Task Reports' : 'Reports & Analytics'}
+            />
           )}
 
           {user?.role === 'SUPER_ADMIN' && (

@@ -475,6 +475,11 @@ export const api = {
     getCrossDeptReport: async () => {
       const res = await fetch(`${API_BASE}/reports/cross-department`, { headers: getAuthHeader() });
       return handleResponse<any>(res);
+    },
+    getTasksReport: async (params?: { scope?: string; departmentId?: string; employeeId?: string; status?: string }) => {
+      const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
+      const res = await fetch(`${API_BASE}/reports/tasks-report${qs}`, { headers: getAuthHeader() });
+      return handleResponse<any>(res);
     }
   },
 
