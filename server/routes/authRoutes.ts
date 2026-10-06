@@ -8,6 +8,9 @@ export const authRoutes = Router();
 // POST /api/auth/login
 authRoutes.post('/login', async (req, res: Response) => {
   try {
+    // Always reload fresh data from MongoDB so any changes (new users, depts, etc.) are visible
+    await db.loadAll();
+
     const { identifier, email, password } = req.body;
 
     // Accept either `identifier` (new field) or legacy `email` field
@@ -20,7 +23,7 @@ authRoutes.post('/login', async (req, res: Response) => {
 
     // Find user by email OR employeeId OR uniqueId (case-insensitive)
     const user = db.users.find(u =>
-      u.email.toLowerCase() === loginInput.toLowerCase() ||
+      (u.email && u.email.toLowerCase() === loginInput.toLowerCase()) ||
       (u.employeeId && u.employeeId.toLowerCase() === loginInput.toLowerCase()) ||
       (u.uniqueId && u.uniqueId.toLowerCase() === loginInput.toLowerCase())
     );

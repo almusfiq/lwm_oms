@@ -147,8 +147,8 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right: Actions, Persona Switcher & User Profile */}
         <div className="flex items-center gap-2.5">
 
-          {/* Quick Assign Task Button */}
-          {onOpenCreateTask && (
+          {/* Quick Assign Task Button — hidden for Super Admin (system manager, not task participant) */}
+          {onOpenCreateTask && user?.role !== 'SUPER_ADMIN' && (
             <button
               type="button"
               onClick={onOpenCreateTask}

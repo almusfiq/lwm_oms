@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import {
   User, Department, Task, TaskRequest, Project,
   TaskComment, Notification, ActivityLog, Approval,
-  EventItem, Announcement, OfficeDocument
+  EventItem, Announcement, OfficeDocument, DirectMessage
 } from './types';
 
 // Environment variable for MongoDB URI
@@ -17,6 +17,7 @@ const Mixed = mongoose.Schema.Types.Mixed;
 const S = (fields: Record<string, any>) => new mongoose.Schema({ _id: Mixed, ...fields }, { strict: false, timestamps: true });
 
 const LEGACY_DEPARTMENT_IDS: Record<string, string> = {
+  dept_ceo: 'CEO',
   dept_admin: 'ADMIN',
   dept_finance: 'FINANCE',
   dept_programme: 'PROGRAMME',
@@ -72,6 +73,7 @@ const ApprovalModel = model<Approval>  ('Approval',     {});
 const EventModel    = model<EventItem> ('EventItem',    {});
 const AnnModel      = model<Announcement>('Announcement', {});
 const DocModel      = model<OfficeDocument>('OfficeDocument', {});
+const DirectMsgModel = model<DirectMessage>('DirectMessage', {});
 
 // ============================================================
 // Helper: convert Mongoose doc → plain JS object matching types
@@ -88,6 +90,8 @@ function toPlain<T>(doc: any): T {
   if (obj.status === 'ACTIVE') obj.isActive = true;
   if (obj.status === 'INACTIVE') obj.isActive = false;
   if (obj.isActive === undefined) obj.isActive = true;
+  // Map passwordHash → password so login route always finds it
+  if (obj.passwordHash && !obj.password) obj.password = obj.passwordHash;
   // Normalize dates to ISO strings
   const dateFields = ['createdAt','updatedAt','lastLoginAt','joiningDate','dueDate','startDate','deadline','completedAt'];
   for (const f of dateFields) {
@@ -115,6 +119,7 @@ class DatabaseManager {
   public events:       EventItem[]     = [];
   public announcements:Announcement[]  = [];
   public documents:    OfficeDocument[]= [];
+  public messages:     DirectMessage[] = [];
 
   // ──────────────────────────────────────────────────────────
   // connect() — connect to MongoDB and load all data to memory
@@ -143,7 +148,7 @@ class DatabaseManager {
   // loadAll() — pull everything from MongoDB into memory
   // ──────────────────────────────────────────────────────────
   public async loadAll() {
-    const [users, depts, tasks, reqs, projects, comments, notis, logs, approvals, events, anns, docs] =
+    const [users, depts, tasks, reqs, projects, comments, notis, logs, approvals, events, anns, docs, msgs] =
       await Promise.all([
         UserModel.find().lean(),
         DeptModel.find().lean(),
@@ -157,6 +162,7 @@ class DatabaseManager {
         EventModel.find().lean(),
         AnnModel.find().lean(),
         DocModel.find().lean(),
+        DirectMsgModel.find().lean(),
       ]);
 
 
@@ -172,6 +178,7 @@ class DatabaseManager {
     this.events        = events.map(d => toPlain<EventItem>(d));
     this.announcements = anns.map(d => toPlain<Announcement>(d));
     this.documents     = docs.map(d => toPlain<OfficeDocument>(d));
+    this.messages      = msgs.map(d => toPlain<DirectMessage>(d));
 
 
 
@@ -248,12 +255,13 @@ class DatabaseManager {
       EventModel.deleteMany({}),
       AnnModel.deleteMany({}),
       DocModel.deleteMany({}),
+      DirectMsgModel.deleteMany({}),
     ]);
     // Clear in-memory too
     this.users = []; this.departments = []; this.tasks = [];
     this.taskRequests = []; this.projects = []; this.comments = [];
     this.notifications = []; this.activityLogs = []; this.approvals = [];
-    this.events = []; this.announcements = []; this.documents = [];
+    this.events = []; this.announcements = []; this.documents = []; this.messages = [];
     console.log('[DB] All collections cleared.');
   }
 
@@ -274,6 +282,7 @@ class DatabaseManager {
         this._syncCollection(EventModel,     this.events,        '_id'),
         this._syncCollection(AnnModel,      this.announcements, '_id'),
         this._syncCollection(DocModel,      this.documents,     '_id'),
+        this._syncCollection(DirectMsgModel, this.messages,     '_id'),
       ]);
     } catch (err) {
       console.error('[DB] Save error:', err);

@@ -1,0 +1,818 @@
+import { User, UserRole, UserTier } from './types';
+
+export interface MasterPerson {
+  _id: string;
+  employeeId: string;
+  uniqueId: string;
+  name: { en: string; bn: string };
+  email: string;
+  designation: { en: string; bn: string };
+  departmentId?: string;
+  role: UserRole;
+  tier?: UserTier;
+  isActive?: boolean;
+  phone?: string;
+  category: string;
+}
+
+export const MASTER_PERSONNEL: MasterPerson[] = [
+  // ── SUPER ADMIN ──
+  {
+    _id: 'usr_super_admin',
+    employeeId: 'SUPER-ADMIN',
+    uniqueId: 'LWM-SA001',
+    name: { en: 'Super Admin', bn: 'সুপার অ্যাডমিন' },
+    email: 'superadmin@lwmbd.org',
+    designation: { en: 'System Super Administrator', bn: 'সিস্টেম সুপার প্রশাসক' },
+    role: 'SUPER_ADMIN',
+    tier: 'SUPER_ADMIN',
+    departmentId: 'dept_admin',
+    category: 'System Administration'
+  },
+
+  // ── BOARD OF TRUSTEES ──
+  {
+    _id: 'usr_trustee_1',
+    employeeId: 'LWM-TRU-001',
+    uniqueId: 'LWM-T0001',
+    name: { en: 'Dr. Sarwar Ali', bn: 'ডা. সারওয়ার আলী' },
+    email: 'sarwar.ali@lwmbd.org',
+    designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
+    role: 'TRUSTEE',
+    tier: 'TRUSTEE',
+    category: 'Board of Trustees'
+  },
+  {
+    _id: 'usr_trustee_2',
+    employeeId: 'LWM-TRU-002',
+    uniqueId: 'LWM-T0002',
+    name: { en: 'Mofidul Hoque', bn: 'মফিদুল হক' },
+    email: 'mofidul.hoque@lwmbd.org',
+    designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
+    role: 'TRUSTEE',
+    tier: 'TRUSTEE',
+    category: 'Board of Trustees'
+  },
+  {
+    _id: 'usr_trustee_3',
+    employeeId: 'LWM-TRU-003',
+    uniqueId: 'LWM-T0003',
+    name: { en: 'Asaduzzaman Noor', bn: 'আসাদুজ্জামান নূর' },
+    email: 'asaduzzaman.noor@lwmbd.org',
+    designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
+    role: 'TRUSTEE',
+    tier: 'TRUSTEE',
+    category: 'Board of Trustees'
+  },
+  {
+    _id: 'usr_trustee_4',
+    employeeId: 'LWM-TRU-004',
+    uniqueId: 'LWM-T0004',
+    name: { en: 'Sara Zaker', bn: 'সারা যাকের' },
+    email: 'sara.zaker@lwmbd.org',
+    designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
+    role: 'TRUSTEE',
+    tier: 'TRUSTEE',
+    category: 'Board of Trustees'
+  },
+  {
+    _id: 'usr_trustee_5',
+    employeeId: 'LWM-TRU-005',
+    uniqueId: 'LWM-T0005',
+    name: { en: 'Akku Chowdhury', bn: 'আকু চৌধুরী' },
+    email: 'akku.chowdhury@lwmbd.org',
+    designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
+    role: 'TRUSTEE',
+    tier: 'TRUSTEE',
+    category: 'Board of Trustees'
+  },
+  {
+    _id: 'usr_trustee_6',
+    employeeId: 'LWM-TRU-006',
+    uniqueId: 'LWM-T0006',
+    name: { en: 'Aly Zaker (In Memoriam)', bn: 'আলী যাকের (স্মরণে)' },
+    email: 'aly.zaker@lwmbd.org',
+    designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
+    role: 'TRUSTEE',
+    tier: 'TRUSTEE',
+    isActive: false,
+    category: 'Board of Trustees'
+  },
+  {
+    _id: 'usr_trustee_7',
+    employeeId: 'LWM-TRU-007',
+    uniqueId: 'LWM-T0007',
+    name: { en: 'Rabiul Husain (In Memoriam)', bn: 'রবিউল হুসাইন (স্মরণে)' },
+    email: 'rabiul.husain@lwmbd.org',
+    designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
+    role: 'TRUSTEE',
+    tier: 'TRUSTEE',
+    isActive: false,
+    category: 'Board of Trustees'
+  },
+  {
+    _id: 'usr_trustee_8',
+    employeeId: 'LWM-TRU-008',
+    uniqueId: 'LWM-T0008',
+    name: { en: 'Ziauddin Tariq Ali (In Memoriam)', bn: 'জিয়াউদ্দীন তারিক আলী (স্মরণে)' },
+    email: 'tariq.ali@lwmbd.org',
+    designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
+    role: 'TRUSTEE',
+    tier: 'TRUSTEE',
+    isActive: false,
+    category: 'Board of Trustees'
+  },
+
+  // ── 1. CHIEF EXECUTIVE OFFICER ──
+  {
+    _id: 'usr_ceo',
+    employeeId: 'LWM-CEO-001',
+    uniqueId: 'LWM-C0001',
+    name: { en: 'Naasehun Ameen', bn: 'নাসেহুন আমীন' },
+    email: 'naasehun.ameen@lwmbd.org',
+    designation: { en: 'Chief Executive Officer', bn: 'প্রধান নির্বাহী কর্মকর্তা' },
+    departmentId: 'dept_ceo',
+    role: 'CEO',
+    tier: 'EXECUTIVE',
+    phone: '+880 1711-000100',
+    category: 'Chief Executive Officer (CEO)'
+  },
+
+  // ── CEO OFFICE SECTION STAFF ──
+  {
+    _id: 'usr_ceo_jeba',
+    employeeId: 'LWM-CEO-002',
+    uniqueId: 'LWM-C0002',
+    name: { en: 'Kohinoor Akter', bn: 'কোহিনুর আক্তার' },
+    email: 'kohinoor.akter@lwmbd.org',
+    designation: { en: 'Office Secretary', bn: 'অফিস সেক্রেটারি' },
+    departmentId: 'dept_ceo',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'CEO Office Section Staff'
+  },
+  {
+    _id: 'usr_ceo_emon',
+    employeeId: 'LWM-CEO-003',
+    uniqueId: 'LWM-C0003',
+    name: { en: 'Md. Hasibul Haque Imon', bn: 'মো: হাসিবুল হক ইমন' },
+    email: 'hasibul.imon@lwmbd.org',
+    designation: { en: 'Programme Coordinator (IT)', bn: 'কর্মসূচি সমন্বয়কারী (আই টি)' },
+    departmentId: 'dept_ceo',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'CEO Office Section Staff'
+  },
+  {
+    _id: 'usr_ceo_sharif',
+    employeeId: 'LWM-CEO-004',
+    uniqueId: 'LWM-C0004',
+    name: { en: 'Sharif Reza Mahmud', bn: 'শরীফ রেজা মাহমুদ' },
+    email: 'sharif.reza@lwmbd.org',
+    designation: { en: 'Officer (AV Memory Centre)', bn: 'কর্মকর্তা-স্মৃতি দৃশ্য কেন্দ্র' },
+    departmentId: 'dept_ceo',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'CEO Office Section Staff'
+  },
+  {
+    _id: 'usr_ceo_dip',
+    employeeId: 'LWM-CEO-005',
+    uniqueId: 'LWM-C0005',
+    name: { en: 'Dwip Halder', bn: 'দীপ হালদার' },
+    email: 'dwip.halder@lwmbd.org',
+    designation: { en: 'Assistant (AV Memory Centre)', bn: 'সহকারী-স্মৃতি দৃশ্য কেন্দ্র' },
+    departmentId: 'dept_ceo',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'CEO Office Section Staff'
+  },
+  {
+    _id: 'usr_ceo_lina',
+    employeeId: 'LWM-CEO-006',
+    uniqueId: 'LWM-C0006',
+    name: { en: 'Leena Sarker', bn: 'লীনা সরকার' },
+    email: 'leena.sarker@lwmbd.org',
+    designation: { en: 'Gallery Guide', bn: 'গ্যালারি গাইড' },
+    departmentId: 'dept_ceo',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'CEO Office Section Staff'
+  },
+  {
+    _id: 'usr_ceo_mitua',
+    employeeId: 'LWM-CEO-007',
+    uniqueId: 'LWM-C0007',
+    name: { en: 'Mitua Mamtaj', bn: 'মিতুয়া মমতাজ' },
+    email: 'mitua.mamtaj@lwmbd.org',
+    designation: { en: 'Gallery Guide', bn: 'গ্যালারি গাইড' },
+    departmentId: 'dept_ceo',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'CEO Office Section Staff'
+  },
+  {
+    _id: 'usr_ceo_yeasmin',
+    employeeId: 'LWM-CEO-008',
+    uniqueId: 'LWM-C0008',
+    name: { en: 'Yasmin Akter Lisa', bn: 'ইয়াছমিন আক্তার লিজা' },
+    email: 'yasmin.lisa@lwmbd.org',
+    designation: { en: 'Gallery Guide', bn: 'গ্যালারি গাইড' },
+    departmentId: 'dept_ceo',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'CEO Office Section Staff'
+  },
+  {
+    _id: 'usr_ceo_maliha',
+    employeeId: 'LWM-CEO-009',
+    uniqueId: 'LWM-C0009',
+    name: { en: 'Maliha Razu', bn: 'মালিহা রাজু' },
+    email: 'maliha.razu@lwmbd.org',
+    designation: { en: 'Gallery Guide', bn: 'গ্যালারি গাইড' },
+    departmentId: 'dept_ceo',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'CEO Office Section Staff'
+  },
+
+  // ── ADMINISTRATION (dept_admin) ──
+  {
+    _id: 'usr_admin_head',
+    employeeId: 'LWM-ADMIN-001',
+    uniqueId: 'LWM-00001',
+    name: { en: 'Chandrajit Singha', bn: 'চন্দ্রজিৎ সিংহ' },
+    email: 'chandrajit.singha@lwmbd.org',
+    designation: { en: 'Manager', bn: 'ব্যবস্থাপক' },
+    departmentId: 'dept_admin',
+    role: 'DEPT_HEAD',
+    tier: 'DEPT_HEAD',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_1',
+    employeeId: 'LWM-ADMIN-002',
+    uniqueId: 'LWM-00002',
+    name: { en: 'Mohammad Fakhrul Islam Sarker', bn: 'মো: ফখরুল ইসলাম সরকার' },
+    email: 'fakhrul.sarker@lwmbd.org',
+    designation: { en: 'In-charge (Sales)', bn: 'ইনচার্জ-বিক্রয়' },
+    departmentId: 'dept_admin',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_2',
+    employeeId: 'LWM-ADMIN-003',
+    uniqueId: 'LWM-00003',
+    name: { en: 'Kabita Rani', bn: 'কবিতা রানী' },
+    email: 'kabita.rani@lwmbd.org',
+    designation: { en: 'Assistant Programme Officer', bn: 'সহ: প্রোগ্রাম কর্মকর্তা' },
+    departmentId: 'dept_admin',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_3',
+    employeeId: 'LWM-ADMIN-004',
+    uniqueId: 'LWM-00004',
+    name: { en: 'Haresuzzaman', bn: 'হারেছুজ্জামান' },
+    email: 'haresuzzaman@lwmbd.org',
+    designation: { en: 'Memorial Collector', bn: 'স্মারক সংগ্রাহক' },
+    departmentId: 'dept_admin',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_4',
+    employeeId: 'LWM-ADMIN-005',
+    uniqueId: 'LWM-00005',
+    name: { en: 'Kabir Hossain Prodhania', bn: 'কবির হোসেন প্রধানিয়া' },
+    email: 'kabir.prodhania@lwmbd.org',
+    designation: { en: 'In-charge (Cafeteria)', bn: 'ইনচার্জ-ক্যাফেটেরিয়া' },
+    departmentId: 'dept_admin',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_5',
+    employeeId: 'LWM-ADMIN-006',
+    uniqueId: 'LWM-00006',
+    name: { en: 'Mohammad Masum', bn: 'মোহাম্মদ মাসুম' },
+    email: 'mohammad.masum@lwmbd.org',
+    designation: { en: 'Ticket Sales Clerk', bn: 'টিকেট বিক্রয় কর্মী' },
+    departmentId: 'dept_admin',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_6',
+    employeeId: 'LWM-ADMIN-007',
+    uniqueId: 'LWM-00007',
+    name: { en: 'Nur Nobi', bn: 'নূর নবী' },
+    email: 'nur.nobi@lwmbd.org',
+    designation: { en: 'Office Assistant', bn: 'অফিস সহায়ক' },
+    departmentId: 'dept_admin',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_7',
+    employeeId: 'LWM-ADMIN-008',
+    uniqueId: 'LWM-00008',
+    name: { en: 'Md. Gaziul Haque', bn: 'মো: গাজীউল হক' },
+    email: 'gaziul.haque@lwmbd.org',
+    designation: { en: 'Office Assistant', bn: 'অফিস সহায়ক' },
+    departmentId: 'dept_admin',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_8',
+    employeeId: 'LWM-ADMIN-009',
+    uniqueId: 'LWM-00009',
+    name: { en: 'Amjad Hossain', bn: 'আমজাদ হোসেন' },
+    email: 'amjad.hossain@lwmbd.org',
+    designation: { en: 'Office Assistant (Jalladkhana)', bn: 'অফিস সহায়ক (জল্লাদখানা)' },
+    departmentId: 'dept_admin',
+    role: 'CONTRACTUAL',
+    tier: 'CONTRACTUAL',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_9',
+    employeeId: 'LWM-ADMIN-0010',
+    uniqueId: 'LWM-00010',
+    name: { en: 'Md. Khokon Sikder', bn: 'মো: খোকন সিকদার' },
+    email: 'khokon.sikder@lwmbd.org',
+    designation: { en: 'Driver', bn: 'গাড়ি চালক' },
+    departmentId: 'dept_admin',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_10',
+    employeeId: 'LWM-ADMIN-0011',
+    uniqueId: 'LWM-00011',
+    name: { en: 'Fatema Begum', bn: 'ফাতেমা বেগম' },
+    email: 'fatema.begum@lwmbd.org',
+    designation: { en: 'Cook', bn: 'কুক' },
+    departmentId: 'dept_admin',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Administration'
+  },
+  {
+    _id: 'usr_admin_11',
+    employeeId: 'LWM-ADMIN-0012',
+    uniqueId: 'LWM-00012',
+    name: { en: 'Suraia Akter', bn: 'সুরাইয়া আক্তার' },
+    email: 'suraia.akter@lwmbd.org',
+    designation: { en: 'Assistant Cook', bn: 'সহকারী কুক' },
+    departmentId: 'dept_admin',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Administration'
+  },
+
+  // ── FINANCE & ACCOUNTS (dept_finance) ──
+  {
+    _id: 'usr_finance_head',
+    employeeId: 'LWM-FINANCE-001',
+    uniqueId: 'LWM-00013',
+    name: { en: 'Mohammad Kamal Uddin', bn: 'মোহাম্মদ কামাল উদ্দিন' },
+    email: 'kamal.uddin@lwmbd.org',
+    designation: { en: 'Manager', bn: 'ব্যবস্থাপক' },
+    departmentId: 'dept_finance',
+    role: 'DEPT_HEAD',
+    tier: 'DEPT_HEAD',
+    category: 'Finance & Accounts'
+  },
+  {
+    _id: 'usr_finance_1',
+    employeeId: 'LWM-FINANCE-002',
+    uniqueId: 'LWM-00014',
+    name: { en: 'Md. Abul Kalam', bn: 'মো: আবুল কালাম' },
+    email: 'abul.kalam@lwmbd.org',
+    designation: { en: 'Associate Manager', bn: 'সহযোগী ব্যবস্থাপক' },
+    departmentId: 'dept_finance',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Finance & Accounts'
+  },
+  {
+    _id: 'usr_finance_2',
+    employeeId: 'LWM-FINANCE-003',
+    uniqueId: 'LWM-00015',
+    name: { en: 'Md. Hakimul Islam', bn: 'মো: হাকিমুল ইসলাম' },
+    email: 'hakimul.islam@lwmbd.org',
+    designation: { en: 'Assistant Programme Officer', bn: 'সহ: প্রোগ্রাম কর্মকর্তা' },
+    departmentId: 'dept_finance',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Finance & Accounts'
+  },
+
+  // ── PROGRAMME (dept_programme) ──
+  {
+    _id: 'usr_prog_head',
+    employeeId: 'LWM-PROGRAMME-001',
+    uniqueId: 'LWM-00016',
+    name: { en: 'Rafiqul Islam', bn: 'রফিকুল ইসলাম' },
+    email: 'rafiqul.islam@lwmbd.org',
+    designation: { en: 'Manager', bn: 'ব্যবস্থাপক' },
+    departmentId: 'dept_programme',
+    role: 'DEPT_HEAD',
+    tier: 'DEPT_HEAD',
+    category: 'Programme'
+  },
+  {
+    _id: 'usr_prog_1',
+    employeeId: 'LWM-PROGRAMME-002',
+    uniqueId: 'LWM-00017',
+    name: { en: 'Promila Biswas', bn: 'প্রমিলা বিশ্বাস' },
+    email: 'promila.biswas@lwmbd.org',
+    designation: { en: 'Supervisor (Jalladkhana)', bn: 'সুপারভাইজার (জল্লাদখানা বধ্যভূমি স্মৃতিপীঠ)' },
+    departmentId: 'dept_programme',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Programme'
+  },
+  {
+    _id: 'usr_prog_2',
+    employeeId: 'LWM-PROGRAMME-003',
+    uniqueId: 'LWM-00018',
+    name: { en: 'K. M Nasir Uddin', bn: 'কে এম নাসির উদ্দিন' },
+    email: 'nasir.uddin@lwmbd.org',
+    designation: { en: 'Assistant Programme Officer', bn: 'সহ: প্রোগ্রাম কর্মকর্তা' },
+    departmentId: 'dept_programme',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Programme'
+  },
+  {
+    _id: 'usr_prog_3',
+    employeeId: 'LWM-PROGRAMME-004',
+    uniqueId: 'LWM-00019',
+    name: { en: 'Md. Rashedul Islam', bn: 'মো: রাশেদুল ইসলাম' },
+    email: 'rashedul.islam@lwmbd.org',
+    designation: { en: 'Office Assistant & Typist', bn: 'অফিস সহকারী ও কম্পিউটার অপারেটর' },
+    departmentId: 'dept_programme',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Programme'
+  },
+  {
+    _id: 'usr_prog_4',
+    employeeId: 'LWM-PROGRAMME-005',
+    uniqueId: 'LWM-00052',
+    name: { en: 'Agnijita Dey Sajuti', bn: 'অগ্নিজিতা দে সজুতি' },
+    email: 'agnijita.sajuti@lwmbd.org',
+    designation: { en: 'Programme Officer', bn: 'প্রোগ্রাম কর্মকর্তা' },
+    departmentId: 'dept_programme',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Programme'
+  },
+
+  // ── EDUCATION PROGRAMME (dept_education) ──
+  {
+    _id: 'usr_edu_head',
+    employeeId: 'LWM-EDUCATION-001',
+    uniqueId: 'LWM-00020',
+    name: { en: 'Satyajit Roy Majumder', bn: 'সত্যজিৎ রায় মজুমদার' },
+    email: 'satyajit.majumder@lwmbd.org',
+    designation: { en: 'Manager', bn: 'ব্যবস্থাপক' },
+    departmentId: 'dept_education',
+    role: 'DEPT_HEAD',
+    tier: 'DEPT_HEAD',
+    category: 'Education Programme'
+  },
+  {
+    _id: 'usr_edu_1',
+    employeeId: 'LWM-EDUCATION-002',
+    uniqueId: 'LWM-00021',
+    name: { en: 'S M Mohsin Hossain', bn: 'এস এম মোহসীন হোসেন' },
+    email: 'mohsin.hossain@lwmbd.org',
+    designation: { en: 'Organizational Manager', bn: 'সাংগঠনিক ব্যবস্থাপক' },
+    departmentId: 'dept_education',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Education Programme'
+  },
+  {
+    _id: 'usr_edu_2',
+    employeeId: 'LWM-EDUCATION-003',
+    uniqueId: 'LWM-00022',
+    name: { en: 'Ranjan Kumar Singha', bn: 'রঞ্জন কুমার সিংহ' },
+    email: 'ranjan.singha@lwmbd.org',
+    designation: { en: 'Programme Officer (Reach Out)', bn: 'প্রোগ্রাম কর্মকর্তা-রিচআউট' },
+    departmentId: 'dept_education',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Education Programme'
+  },
+  {
+    _id: 'usr_edu_3',
+    employeeId: 'LWM-EDUCATION-004',
+    uniqueId: 'LWM-00023',
+    name: { en: 'Ranika Islam', bn: 'রনিকা ইসলাম' },
+    email: 'ranika.islam@lwmbd.org',
+    designation: { en: 'Programme Officer (Outreach)', bn: 'প্রোগ্রাম কর্মকর্তা-আউটরিচ' },
+    departmentId: 'dept_education',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Education Programme'
+  },
+  {
+    _id: 'usr_edu_4',
+    employeeId: 'LWM-EDUCATION-005',
+    uniqueId: 'LWM-00024',
+    name: { en: 'Md. Mizanur Rahman', bn: 'মো: মিজানুর রহমান' },
+    email: 'mizanur.rahman@lwmbd.org',
+    designation: { en: 'Office Assistant & Computer Operator', bn: 'অফিস সহকারী ও কম্পিউটার অপারেটর' },
+    departmentId: 'dept_education',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Education Programme'
+  },
+  {
+    _id: 'usr_edu_5',
+    employeeId: 'LWM-EDUCATION-006',
+    uniqueId: 'LWM-00025',
+    name: { en: 'Suman Biswas', bn: 'সুমন বিশ্বাস' },
+    email: 'suman.biswas@lwmbd.org',
+    designation: { en: 'Computer Operator', bn: 'কম্পিউটার অপারেটর' },
+    departmentId: 'dept_education',
+    role: 'CONTRACTUAL',
+    tier: 'CONTRACTUAL',
+    category: 'Education Programme'
+  },
+  {
+    _id: 'usr_edu_6',
+    employeeId: 'LWM-EDUCATION-007',
+    uniqueId: 'LWM-00026',
+    name: { en: 'Sahadat Hossain', bn: 'সাহাদাত হোসেন' },
+    email: 'sahadat.hossain@lwmbd.org',
+    designation: { en: 'Driver', bn: 'গাড়ি চালক' },
+    departmentId: 'dept_education',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Education Programme'
+  },
+  {
+    _id: 'usr_edu_7',
+    employeeId: 'LWM-EDUCATION-008',
+    uniqueId: 'LWM-00053',
+    name: { en: 'Mehjabin Nazrana', bn: 'মেহজাবিন নজরানা' },
+    email: 'mehjabin.nazrana@lwmbd.org',
+    designation: { en: 'Education Officer', bn: 'শিক্ষা কর্মকর্তা' },
+    departmentId: 'dept_education',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Education Programme'
+  },
+
+  // ── ARCHIVE & DISPLAY (dept_archive) ──
+  {
+    _id: 'usr_archive_head',
+    employeeId: 'LWM-ARCHIVE-001',
+    uniqueId: 'LWM-00027',
+    name: { en: 'Amena Khatun', bn: 'আমেনা খাতুন' },
+    email: 'amena.khatun@lwmbd.org',
+    designation: { en: 'Curator', bn: 'কিউরেটর' },
+    departmentId: 'dept_archive',
+    role: 'DEPT_HEAD',
+    tier: 'DEPT_HEAD',
+    category: 'Archive & Display'
+  },
+  {
+    _id: 'usr_archive_1',
+    employeeId: 'LWM-ARCHIVE-002',
+    uniqueId: 'LWM-00028',
+    name: { en: 'Sree Mantu Babu', bn: 'শ্রী মন্টু বাবু' },
+    email: 'mantu.babu@lwmbd.org',
+    designation: { en: 'Assistant Archive Officer', bn: 'সহ: আর্কাইভ কর্মকর্তা' },
+    departmentId: 'dept_archive',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Archive & Display'
+  },
+  {
+    _id: 'usr_archive_2',
+    employeeId: 'LWM-ARCHIVE-003',
+    uniqueId: 'LWM-00029',
+    name: { en: 'Rezaul Ahmed', bn: 'রেজাউল আহমেদ' },
+    email: 'rezaul.ahmed@lwmbd.org',
+    designation: { en: 'Assistant Archive Officer', bn: 'সহ: আর্কাইভ কর্মকর্তা' },
+    departmentId: 'dept_archive',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Archive & Display'
+  },
+  {
+    _id: 'usr_archive_3',
+    employeeId: 'LWM-ARCHIVE-004',
+    uniqueId: 'LWM-00030',
+    name: { en: 'Mirza Mahmud Ahmed', bn: 'মির্জা মাহমুদ আহমেদ' },
+    email: 'mirza.ahmed@lwmbd.org',
+    designation: { en: 'Research Assistant (Archive)', bn: 'গবেষণা সহকারী-আর্কাইভ' },
+    departmentId: 'dept_archive',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Archive & Display'
+  },
+  {
+    _id: 'usr_archive_4',
+    employeeId: 'LWM-ARCHIVE-005',
+    uniqueId: 'LWM-00031',
+    name: { en: 'Shahidul Islam', bn: 'শহিদুল ইসলাম' },
+    email: 'shahidul.islam@lwmbd.org',
+    designation: { en: 'Interior Designer', bn: 'ইন্টেরিয়র ডিজাইনার' },
+    departmentId: 'dept_archive',
+    role: 'CONTRACTUAL',
+    tier: 'CONTRACTUAL',
+    category: 'Archive & Display'
+  },
+  {
+    _id: 'usr_archive_5',
+    employeeId: 'LWM-ARCHIVE-006',
+    uniqueId: 'LWM-00032',
+    name: { en: 'Raiyan Ashraf', bn: 'রায়হান আশরাফ' },
+    email: 'raiyan.ashraf@lwmbd.org',
+    designation: { en: 'Assistant Interior Designer', bn: 'সহ: ইন্টেরিয়র ডিজাইনার' },
+    departmentId: 'dept_archive',
+    role: 'CONTRACTUAL',
+    tier: 'CONTRACTUAL',
+    category: 'Archive & Display'
+  },
+
+  // ── RESEARCH & LIBRARY (dept_research) ──
+  {
+    _id: 'usr_research_head',
+    employeeId: 'LWM-RESEARCH-001',
+    uniqueId: 'LWM-00033',
+    name: { en: 'Rezina Begum', bn: 'রেজিনা বেগম' },
+    email: 'rezina.begum@lwmbd.org',
+    designation: { en: 'Manager', bn: 'ব্যবস্থাপক' },
+    departmentId: 'dept_research',
+    role: 'DEPT_HEAD',
+    tier: 'DEPT_HEAD',
+    category: 'Research & Library'
+  },
+  {
+    _id: 'usr_research_1',
+    employeeId: 'LWM-RESEARCH-002',
+    uniqueId: 'LWM-00034',
+    name: { en: 'Sabrina Afrin Tonny', bn: 'সাবরিনা আফরিন তন্বী' },
+    email: 'sabrina.tonny@lwmbd.org',
+    designation: { en: 'Research Associate', bn: 'গবেষণা সহযোগী' },
+    departmentId: 'dept_research',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Research & Library'
+  },
+  {
+    _id: 'usr_research_2',
+    employeeId: 'LWM-RESEARCH-003',
+    uniqueId: 'LWM-00035',
+    name: { en: 'Umme Kulsum Mony', bn: 'উম্মে কুলসুম মুন্নী' },
+    email: 'umme.kulsum@lwmbd.org',
+    designation: { en: 'Assistant Librarian', bn: 'সহ: লাইব্রেরিয়ান' },
+    departmentId: 'dept_research',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Research & Library'
+  },
+  {
+    _id: 'usr_research_3',
+    employeeId: 'LWM-RESEARCH-004',
+    uniqueId: 'LWM-00050',
+    name: { en: 'M.Farhatul Haque', bn: 'এম. ফারহাতুল হক' },
+    email: 'farhatul.haque@lwmbd.org',
+    designation: { en: 'Research Officer', bn: 'গবেষণা কর্মকর্তা' },
+    departmentId: 'dept_research',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Research & Library'
+  },
+  {
+    _id: 'usr_research_4',
+    employeeId: 'LWM-RESEARCH-005',
+    uniqueId: 'LWM-00051',
+    name: { en: 'Farid Ahmad', bn: 'ফরিদ আহমদ' },
+    email: 'farid.ahmad@lwmbd.org',
+    designation: { en: 'Documentation Officer', bn: 'ডকুমেন্টেশন কর্মকর্তা' },
+    departmentId: 'dept_research',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Research & Library'
+  },
+
+  // ── MAINTENANCE (dept_maintenance) ──
+  {
+    _id: 'usr_maint_head',
+    employeeId: 'LWM-MAINTENANCE-001',
+    uniqueId: 'LWM-00036',
+    name: { en: 'Sagor Sikder', bn: 'সাগর শিকদার' },
+    email: 'sagor.sikder@lwmbd.org',
+    designation: { en: 'Maintenance Engineer (In-charge)', bn: 'রক্ষণাবেক্ষণ প্রকৌশলী-ইনচার্জ' },
+    departmentId: 'dept_maintenance',
+    role: 'DEPT_HEAD',
+    tier: 'DEPT_HEAD',
+    category: 'Maintenance'
+  },
+  {
+    _id: 'usr_maint_1',
+    employeeId: 'LWM-MAINTENANCE-002',
+    uniqueId: 'LWM-00037',
+    name: { en: 'Abul Hossain', bn: 'আবুল হোসেন' },
+    email: 'abul.hossain@lwmbd.org',
+    designation: { en: 'Light & Sound System Operator', bn: 'লাইট ও সাউন্ড সিস্টেম অপারেটর' },
+    departmentId: 'dept_maintenance',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Maintenance'
+  },
+  {
+    _id: 'usr_maint_2',
+    employeeId: 'LWM-MAINTENANCE-003',
+    uniqueId: 'LWM-00038',
+    name: { en: 'Sumaiya Akter', bn: 'সুমাইয়া আক্তার' },
+    email: 'sumaiya.akter@lwmbd.org',
+    designation: { en: 'AC Operator', bn: 'এসি অপারেটর' },
+    departmentId: 'dept_maintenance',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Maintenance'
+  },
+  {
+    _id: 'usr_maint_3',
+    employeeId: 'LWM-MAINTENANCE-004',
+    uniqueId: 'LWM-00039',
+    name: { en: 'Sumon', bn: 'মো: সুমন' },
+    email: 'sumon@lwmbd.org',
+    designation: { en: 'Technician', bn: 'টেকনিশিয়ান' },
+    departmentId: 'dept_maintenance',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Maintenance'
+  },
+  {
+    _id: 'usr_maint_4',
+    employeeId: 'LWM-MAINTENANCE-005',
+    uniqueId: 'LWM-00040',
+    name: { en: 'Mostafa Kamal', bn: 'মোস্তফা কামাল' },
+    email: 'mostafa.kamal@lwmbd.org',
+    designation: { en: 'Headman', bn: 'হেডম্যান' },
+    departmentId: 'dept_maintenance',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Maintenance'
+  },
+  {
+    _id: 'usr_maint_5',
+    employeeId: 'LWM-MAINTENANCE-006',
+    uniqueId: 'LWM-00041',
+    name: { en: 'Md. Rashid Hossain', bn: 'মো: রশীদ হোসেন' },
+    email: 'rashid.hossain@lwmbd.org',
+    designation: { en: 'Electrician', bn: 'ইলেকট্রিশিয়ান' },
+    departmentId: 'dept_maintenance',
+    role: 'STAFF',
+    tier: 'STAFF',
+    category: 'Maintenance'
+  },
+
+  // ── COMMUNICATIONS (dept_communications) ──
+  {
+    _id: 'usr_comm_head',
+    employeeId: 'LWM-COMMUNICATIONS-001',
+    uniqueId: 'LWM-00042',
+    name: { en: 'Tanveer Hasan', bn: 'তানভীর হাসান' },
+    email: 'tanveer.hasan@lwmbd.org',
+    designation: { en: 'Head of Communications', bn: 'যোগাযোগ প্রধান' },
+    departmentId: 'dept_communications',
+    role: 'DEPT_HEAD',
+    tier: 'DEPT_HEAD',
+    category: 'Communications'
+  },
+  {
+    _id: 'usr_comm_1',
+    employeeId: 'LWM-COMMUNICATIONS-002',
+    uniqueId: 'LWM-00043',
+    name: { en: 'Nusrat Jahan', bn: 'নুসরাত জাহান' },
+    email: 'nusrat.jahan@lwmbd.org',
+    designation: { en: 'Public Relations Officer', bn: 'জনসংযোগ কর্মকর্তা' },
+    departmentId: 'dept_communications',
+    role: 'OFFICER',
+    tier: 'OFFICER',
+    category: 'Communications'
+  }
+];

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Task, TaskComment, ActivityLog, TaskStatus } from '../../types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Task, TaskComment, ActivityLog, TaskStatus, User } from '../../types';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { StatusBadge } from '../common/StatusBadge';
@@ -49,7 +49,21 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [reviewNote, setReviewNote] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
-  const isAssignee = Array.isArray(task?.assignedTo) && user?._id ? task.assignedTo.includes(user._id) : false;
+  // For CEO referral: let CEO pick which trustee to refer to
+  const [trustees, setTrustees] = useState<User[]>([]);
+  const [selectedTrusteeId, setSelectedTrusteeId] = useState('');
+
+  // Both direct assignees AND collaborators are treated as co-assignees
+  const isAssignee = Boolean(
+    user?._id && task && (
+      (Array.isArray(task?.assignedTo) && task.assignedTo.includes(user._id)) ||
+      (Array.isArray(task?.collaborators) && task.collaborators.includes(user._id))
+    )
+  );
+  const isCollaborator = Boolean(
+    user?._id && task &&
+    Array.isArray(task?.collaborators) && task.collaborators.includes(user._id)
+  );
   const isAssigner = Boolean(
     user?._id && (
       task?.createdBy === user._id ||
@@ -101,6 +115,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const handleReviewTask = async (action: 'APPROVE' | 'MODIFY' | 'REJECT' | 'REFER', customNote?: string) => {
     if (!task) return;
+    // CEO referring to Trustee must select a specific trustee
+    if (action === 'REFER' && user?.role === 'CEO' && !selectedTrusteeId) {
+      alert('Please select a specific Trustee to refer this task to.');
+      return;
+    }
     setReviewSubmitting(true);
     try {
       const targetLevel =
@@ -113,11 +132,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       const updated = await api.tasks.review(task._id, {
         action,
         note: customNote !== undefined ? customNote : reviewNote,
-        targetLevel
+        targetLevel,
+        ...(action === 'REFER' && user?.role === 'CEO' && selectedTrusteeId ? { targetTrusteeId: selectedTrusteeId } : {})
       });
       setTask(updated);
       setReviewAction(null);
       setReviewNote('');
+      setSelectedTrusteeId('');
       onTaskUpdated?.();
       fetchTaskDetails();
     } catch (err: any) {
@@ -126,6 +147,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setReviewSubmitting(false);
     }
   };
+
+  // Load trustees when CEO opens the Refer modal
+  const loadTrustees = useCallback(async () => {
+    if (user?.role !== 'CEO') return;
+    try {
+      const allUsers: User[] = await api.users.list({ activeOnly: true });
+      const filtered = (Array.isArray(allUsers) ? allUsers : []).filter(
+        (u: User) => u.role === 'TRUSTEE' || (u as any).roleId === 'TRUSTEE'
+      );
+      setTrustees(filtered);
+    } catch {
+      setTrustees([]);
+    }
+  }, [user?.role]);
 
   const fetchTaskDetails = async () => {
     if (!taskId) return;
@@ -393,7 +428,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   {/* 4. Refer to Upper Hierarchy */}
                   <button
                     type="button"
-                    onClick={() => { setReviewAction('REFER'); setReviewNote(''); }}
+                    onClick={() => { setReviewAction('REFER'); setReviewNote(''); setSelectedTrusteeId(''); loadTrustees(); }}
                     disabled={reviewSubmitting}
                     className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
                   >
@@ -771,6 +806,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               {/* Attachments */}
               {activeTab === 'files' && (
                 <div className="space-y-4">
+                  {/* Collaborative access notice */}
+                  {task.collaborators && task.collaborators.length > 0 && (
+                    <div className="flex items-start gap-2.5 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl text-xs text-blue-800 dark:text-blue-200">
+                      <span className="text-base mt-0.5">🤝</span>
+                      <div>
+                        <span className="font-semibold">Shared Workspace:</span> All co-assignees and collaborators can view all submitted files for this task.
+                        {' '}<span className="text-blue-600 dark:text-blue-400">{task.collaborators.length} collaborator{task.collaborators.length > 1 ? 's' : ''} on this task.</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                       Attached Documents & Evidence
@@ -885,7 +930,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             : 'Department Head'
                       }`}
                 </h3>
-                <button type="button" onClick={() => setReviewAction(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                <button type="button" onClick={() => { setReviewAction(null); setSelectedTrusteeId(''); }} className="p-1 text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -895,6 +940,32 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   ? 'Provide specific instructions or feedback on what the assigned user needs to modify.'
                   : 'Add optional referral notes before escalating to upper hierarchy for final approval.'}
               </p>
+
+              {/* CEO must select which specific Trustee to refer to */}
+              {reviewAction === 'REFER' && user?.role === 'CEO' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                    Select Trustee <span className="text-red-500">*</span>
+                  </label>
+                  {trustees.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">Loading trustees...</p>
+                  ) : (
+                    <select
+                      value={selectedTrusteeId}
+                      onChange={e => setSelectedTrusteeId(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                    >
+                      <option value="">-- Select a Trustee --</option>
+                      {trustees.map(t => (
+                        <option key={t._id} value={t._id}>
+                          {t.name?.en || t.name?.bn || t._id}
+                          {t.designation?.en ? ` — ${t.designation.en}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
 
               <textarea
                 rows={4}
@@ -907,14 +978,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setReviewAction(null)}
+                  onClick={() => { setReviewAction(null); setSelectedTrusteeId(''); }}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  disabled={reviewSubmitting || (reviewAction === 'MODIFY' && !reviewNote.trim())}
+                  disabled={
+                    reviewSubmitting ||
+                    (reviewAction === 'MODIFY' && !reviewNote.trim()) ||
+                    (reviewAction === 'REFER' && user?.role === 'CEO' && !selectedTrusteeId)
+                  }
                   onClick={() => handleReviewTask(reviewAction, reviewNote)}
                   className={`px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-xs disabled:opacity-50 transition-colors ${
                     reviewAction === 'MODIFY' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-purple-600 hover:bg-purple-700'

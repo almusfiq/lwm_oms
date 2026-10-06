@@ -27,6 +27,7 @@ export interface DepartmentRef {
 export interface User {
   _id: string;
   employeeId: string;
+  uniqueId?: string;
   name: LocalizedString;
   email: string;
   designation: LocalizedString;
@@ -352,8 +353,22 @@ export type NavigationTab =
   | 'documents'
   | 'announcements'
   | 'events'
-  | 'performance';
+  | 'performance'
+  | 'messages';
 
 export type NavTab = NavigationTab;
 
-
+export interface DirectMessage {
+  _id: string;
+  senderId: string;
+  sender?: User | null;
+  subject: string;
+  body: string;
+  recipientType: 'individual' | 'department' | 'all';
+  departmentId?: string;
+  recipientIds: string[];
+  recipientUsers?: Partial<User>[];
+  readBy: string[];
+  isRead?: boolean;
+  createdAt: string;
+}

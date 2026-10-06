@@ -21,6 +21,7 @@ import { reportRoutes } from './server/routes/reportRoutes';
 import { analyticsRoutes } from './server/routes/analyticsRoutes';
 import { organogramRoutes } from './server/routes/organogramRoutes';
 import { uploadRoutes } from './server/routes/uploadRoutes';
+import { messageRoutes } from './server/routes/messageRoutes';
 
 async function startServer() {
   const app = express();
@@ -187,6 +188,9 @@ async function startServer() {
 
     // Upload
     app.use('/api/upload', uploadRoutes);
+
+    // Direct Messages (CEO / Dept Head / Trustee → individual or department)
+    app.use('/api/messages', messageRoutes);
   } else {
     // ==========================================================
     // DEMO MODE

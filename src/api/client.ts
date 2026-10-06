@@ -587,7 +587,40 @@ export const api = {
       const res = await fetch(`${API_BASE}/seed/reset`, { method: 'POST' });
       return handleResponse<any>(res);
     }
+  },
+
+  messages: {
+    inbox: async () => {
+      const res = await fetch(`${API_BASE}/messages/inbox`, { headers: getAuthHeader() });
+      return handleResponse<any[]>(res);
+    },
+    sent: async () => {
+      const res = await fetch(`${API_BASE}/messages/sent`, { headers: getAuthHeader() });
+      return handleResponse<any[]>(res);
+    },
+    unreadCount: async () => {
+      const res = await fetch(`${API_BASE}/messages/unread-count`, { headers: getAuthHeader() });
+      return handleResponse<{ count: number }>(res);
+    },
+    send: async (data: { subject: string; body: string; recipientType: string; recipientIds?: string[]; departmentId?: string }) => {
+      const res = await fetch(`${API_BASE}/messages`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        body: JSON.stringify(data)
+      });
+      return handleResponse<any>(res);
+    },
+    markRead: async (id: string) => {
+      const res = await fetch(`${API_BASE}/messages/${id}/read`, {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      return handleResponse<any>(res);
+    }
   }
 };
+
+
+
 
 

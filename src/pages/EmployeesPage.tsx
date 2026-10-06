@@ -404,10 +404,10 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
                         setSelectedUser(null);
                         onRequestWorkFromUser(u);
                       }}
-                      className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs flex items-center gap-1.5"
+                      className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs flex items-center gap-1.5 cursor-pointer"
                     >
-                      <GitPullRequest className="w-3.5 h-3.5" />
-                      <span>Request Work</span>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Give / Assign Task</span>
                     </button>
                   )}
                 </div>

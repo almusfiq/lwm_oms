@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CheckSquare, ListTodo, GitPullRequest,
   Kanban, Calendar, FolderKanban, Network, Building2,
   Users, CheckCheck, BarChart3, FileText, Megaphone,
-  CalendarDays, X, TrendingUp, UserCog, ShieldAlert, Send
+  CalendarDays, X, TrendingUp, UserCog, ShieldAlert, Send, MessageSquare
 } from 'lucide-react';
 
 export type NavTab =
@@ -25,7 +25,8 @@ export type NavTab =
   | 'announcements'
   | 'events'
   | 'performance'
-  | 'activity-logs';
+  | 'activity-logs'
+  | 'messages';
 
 
 
@@ -59,8 +60,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isTrustee = role === 'TRUSTEE';
   const isCEO = role === 'CEO';
   const isDeptHead = isDepartmentHead(user);
-  // Staff = everyone else (OFFICER, STAFF, CONTRACTUAL, EMPLOYEE, ASSISTANT_OFFICER)
-  const isStaff = !isTrustee && !isCEO && !isDeptHead;
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isStaff = !isTrustee && !isCEO && !isDeptHead && !isSuperAdmin;
 
   const navItemClass = (tab: NavTab) => {
     const isActive = currentTab === tab;
@@ -117,7 +118,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <NavBtn tab="dashboard" icon={LayoutDashboard} label="Dashboard" />
         </div>
 
-        {/* Work & Tasks */}
+        {/* Work & Tasks — hidden for Super Admin (they manage system, not tasks) */}
+        {!isSuperAdmin && (
         <div className="space-y-1">
           <SectionLabel label="Work & Tasks" />
 
@@ -145,9 +147,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <NavBtn tab="projects" icon={FolderKanban} label="Projects" />
           )}
         </div>
+        )}
 
-        {/* Organization — not for staff */}
-        {!isStaff && (
+        {/* Organization — not for staff or Super Admin */}
+        {!isStaff && !isSuperAdmin && (
           <div className="space-y-1">
             <SectionLabel label="Organization" />
 
@@ -164,20 +167,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-1">
           <SectionLabel label="Governance" />
 
-          {/* Approvals — everyone but with different labels */}
-          {!isStaff ? (
+          {/* Approvals — everyone but with different labels; hidden for Super Admin */}
+          {isSuperAdmin ? null : !isStaff ? (
             <NavBtn tab="approvals" icon={CheckCheck} label="Approvals Engine" />
           ) : (
             // Staff: can submit approval requests (goes to dept head)
             <NavBtn tab="approvals" icon={Send} label="Submit Request" />
           )}
 
-          {/* Performance — Trustee, CEO, Dept Head ONLY (staff cannot see) */}
-          {!isStaff && (
+          {/* Performance — Trustee, CEO, Dept Head ONLY (staff and super admin cannot see) */}
+          {!isStaff && !isSuperAdmin && (
             <NavBtn tab="performance" icon={TrendingUp} label="Performance Scores" />
           )}
 
-          {!isStaff && (
+          {!isStaff && !isSuperAdmin && (
             <NavBtn tab="reports" icon={BarChart3} label={isDeptHead ? 'Dept Task Reports' : 'Reports & Matrix'} />
           )}
 
@@ -186,13 +189,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Communication — everyone */}
+        {/* Communication — everyone except Super Admin */}
+        {!isSuperAdmin && (
         <div className="space-y-1">
           <SectionLabel label="Communication" />
           <NavBtn tab="documents" icon={FileText} label="Documents" />
           <NavBtn tab="announcements" icon={Megaphone} label="Announcements" />
           <NavBtn tab="events" icon={CalendarDays} label="Museum Events" />
+          {/* Direct Messaging — for CEO, Trustee, Dept Head to send; all to receive */}
+          <NavBtn tab="messages" icon={MessageSquare} label="Messages" />
         </div>
+        )}
 
 
 

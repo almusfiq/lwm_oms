@@ -5,11 +5,18 @@ import {
   TaskComment, Notification, ActivityLog, Approval, 
   EventItem, Announcement, OfficeDocument 
 } from './types';
+import { MASTER_PERSONNEL } from './personnelData';
 
 export async function seedDatabase(force = false) {
-  if (!force && db.users.length > 0 && db.departments.length > 0) {
-    console.log(`[Seed] Database already seeded (${db.users.length} users, ${db.departments.length} departments). Skipping.`);
-    return;
+  const isExistingDb = db.users.length > 0 && db.departments.length > 0;
+  if (!force && isExistingDb) {
+    const hasCeoDept = db.departments.some(d => d._id === 'dept_ceo' || d.code === 'CEO');
+    const hasCeoStaff = db.users.some(u => u._id === 'usr_ceo_jeba');
+    if (hasCeoDept && hasCeoStaff) {
+      console.log(`[Seed] Database already seeded (${db.users.length} users, ${db.departments.length} departments). Skipping.`);
+      return;
+    }
+    console.log('[Seed] Detected missing CEO office or staff in existing database. Synchronizing updates...');
   }
 
   console.log('[Seed] Seeding Liberation War Museum workspace data...');
@@ -17,6 +24,16 @@ export async function seedDatabase(force = false) {
 
   // 1. Departments
   const departmentsData: Department[] = [
+    {
+      _id: 'dept_ceo',
+      code: 'CEO',
+      name: { en: 'CEO Office', bn: 'প্রধান নির্বাহীর দপ্তর' },
+      description: 'Office of the Chief Executive Officer, Gallery Guides, AV Memory Centre, IT, and Secretariat.',
+      headId: 'usr_ceo',
+      isActive: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    },
     {
       _id: 'dept_admin',
       code: 'ADMIN',
@@ -91,220 +108,30 @@ export async function seedDatabase(force = false) {
     }
   ];
 
-  // 2. Users
-  const usersData: User[] = [];
-
-  // 2.0 Super Admin
-  usersData.push({
-    _id: 'usr_super_admin',
-    employeeId: 'SUPER-ADMIN',
-    uniqueId: 'LWM-SA001',
-    name: { en: 'Super Admin', bn: 'সুপার অ্যাডমিন' },
-    email: 'superadmin@lwmbd.org',
+  // 2. Users (Populated directly from MASTER_PERSONNEL matching official organogram and roster)
+  const usersData: User[] = MASTER_PERSONNEL.map((p) => ({
+    _id: p._id,
+    employeeId: p.employeeId,
+    uniqueId: p.uniqueId,
+    name: p.name,
+    email: p.email,
     password: defaultPassword,
-    designation: { en: 'System Super Administrator', bn: 'সিস্টেম সুপার প্রশাসক' },
-    role: 'SUPER_ADMIN',
-    tier: 'SUPER_ADMIN',
-    isActive: true,
-    phone: '+880 1700-000000',
+    designation: p.designation,
+    departmentId: p.departmentId,
+    role: p.role,
+    tier: p.tier,
+    isActive: p.isActive !== undefined ? p.isActive : true,
+    phone: p.phone,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z'
-  });
+  }));
 
-  // 2.1 Board of Trustees
-  const trusteesList = [
-    { id: 'usr_trustee_1', uid: 'LWM-T0001', name: { en: 'Dr. Sarwar Ali', bn: 'ডা. সারওয়ার আলী' }, email: 'sarwar.ali@lwmbd.org' },
-    { id: 'usr_trustee_2', uid: 'LWM-T0002', name: { en: 'Mofidul Hoque', bn: 'মফিদুল হক' }, email: 'mofidul.hoque@lwmbd.org' },
-    { id: 'usr_trustee_3', uid: 'LWM-T0003', name: { en: 'Asaduzzaman Noor', bn: 'আসাদুজ্জামান নূর' }, email: 'asaduzzaman.noor@lwmbd.org' },
-    { id: 'usr_trustee_4', uid: 'LWM-T0004', name: { en: 'Sara Zaker', bn: 'সারা যাকের' }, email: 'sara.zaker@lwmbd.org' },
-    { id: 'usr_trustee_5', uid: 'LWM-T0005', name: { en: 'Akku Chowdhury', bn: 'আকু চৌধুরী' }, email: 'akku.chowdhury@lwmbd.org' },
-    { id: 'usr_trustee_6', uid: 'LWM-T0006', name: { en: 'Aly Zaker (In Memoriam)', bn: 'আলী যাকের (স্মরণে)' }, email: 'aly.zaker@lwmbd.org', isActive: false },
-    { id: 'usr_trustee_7', uid: 'LWM-T0007', name: { en: 'Rabiul Husain (In Memoriam)', bn: 'রবিউল হুসাইন (স্মরণে)' }, email: 'rabiul.husain@lwmbd.org', isActive: false },
-    { id: 'usr_trustee_8', uid: 'LWM-T0008', name: { en: 'Ziauddin Tariq Ali (In Memoriam)', bn: 'জিয়াউদ্দীন তারিক আলী (স্মরণে)' }, email: 'tariq.ali@lwmbd.org', isActive: false }
-  ];
-
-  trusteesList.forEach((t, i) => {
-    usersData.push({
-      _id: t.id,
-      employeeId: `LWM-TRU-00${i + 1}`,
-      uniqueId: t.uid,
-      name: t.name,
-      email: t.email,
-      password: defaultPassword,
-      designation: { en: 'Member, Board of Trustees', bn: 'সদস্য, ট্রাস্টি বোর্ড' },
-      role: 'TRUSTEE',
-      tier: 'TRUSTEE',
-      isActive: t.isActive !== undefined ? t.isActive : true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z'
-    });
-  });
-
-  // 2.2 Executive: CEO
-  usersData.push({
-    _id: 'usr_ceo',
-    employeeId: 'LWM-CEO-001',
-    uniqueId: 'LWM-C0001',
-    name: { en: 'Nasihun Amin', bn: 'নাসিহুন আমীন' },
-    email: 'ceo@lwmbd.org',
-    password: defaultPassword,
-    designation: { en: 'Chief Executive Officer', bn: 'প্রধান নির্বাহী কর্মকর্তা' },
-    role: 'CEO',
-    tier: 'EXECUTIVE',
-    isActive: true,
-    phone: '+880 1711-000100',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z'
-  });
-
-  // 2.3 Department Heads & Staff
-  const deptsSeed = [
-    {
-      code: 'ADMIN',
-      deptId: 'dept_admin',
-      headId: 'usr_admin_head',
-      headName: { en: 'Chandrajit Singh', bn: 'চন্দ্রজিৎ সিংহ' },
-      headTitle: { en: 'Manager', bn: 'ব্যবস্থাপক' },
-      subordinates: [
-        { id: 'usr_admin_1', name: { en: 'Md. Fazlul Islam Sarker', bn: 'মো: ফজলুল ইসলাম সরকার' }, desig: { en: 'In-charge (Sales)', bn: 'ইনচার্জ-বিক্রয়' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_admin_2', name: { en: 'Kabita Rani Biswas', bn: 'কবিতা রানী বিশ্বাস' }, desig: { en: 'Assistant Programme Officer', bn: 'সহ: প্রোগ্রাম কর্মকর্তা' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_admin_3', name: { en: 'Harezuzzaman', bn: 'হারেযুজ্জামান' }, desig: { en: 'Memorial Collector', bn: 'স্মারক সংগ্রাহক' }, role: 'STAFF' as const, tier: 'STAFF' as const },
-        { id: 'usr_admin_4', name: { en: 'Kabir Hossain Prodhania', bn: 'কবির হোসেন প্রধানিয়া' }, desig: { en: 'In-charge (Cafeteria)', bn: 'ইনচার্জ-ক্যাফেটেরিয়া' }, role: 'STAFF' as const, tier: 'STAFF' as const },
-        { id: 'usr_admin_5', name: { en: 'Md. Masum Hossain', bn: 'মো: মাসুম হোসেন' }, desig: { en: 'Ticket Sales Clerk', bn: 'টিকেট বিক্রয় কর্মী' }, role: 'STAFF' as const, tier: 'STAFF' as const },
-        { id: 'usr_admin_6', name: { en: 'Nur Nabi', bn: 'নূর নবী' }, desig: { en: 'Office Assistant', bn: 'অফিস সহায়ক' }, role: 'STAFF' as const, tier: 'STAFF' as const },
-        { id: 'usr_admin_7', name: { en: 'Gaziul Haque Razu', bn: 'গাজীউল হক রাজু' }, desig: { en: 'Office Assistant', bn: 'অফিস সহায়ক' }, role: 'STAFF' as const, tier: 'STAFF' as const },
-        { id: 'usr_admin_8', name: { en: 'Amjad Hossain', bn: 'আমজাদ হোসেন' }, desig: { en: 'Office Assistant (Jalladkhana)', bn: 'অফিস সহায়ক (জল্লাদখানা)' }, role: 'CONTRACTUAL' as const, tier: 'CONTRACTUAL' as const }
-      ]
-    },
-    {
-      code: 'FINANCE',
-      deptId: 'dept_finance',
-      headId: 'usr_finance_head',
-      headName: { en: 'Md. Kamal Uddin', bn: 'মো: কামাল উদ্দিন' },
-      headTitle: { en: 'Manager', bn: 'ব্যবস্থাপক' },
-      subordinates: [
-        { id: 'usr_finance_1', name: { en: 'Md. Abul Kalam', bn: 'মো: আবুল কালাম' }, desig: { en: 'Assistant Manager', bn: 'সহকারী ব্যবস্থাপক' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_finance_2', name: { en: 'Md. Hakimul Islam', bn: 'মো: হাকিমুল ইসলাম' }, desig: { en: 'Assistant Programme Officer', bn: 'সহ: প্রোগ্রাম কর্মকর্তা' }, role: 'OFFICER' as const, tier: 'OFFICER' as const }
-      ]
-    },
-    {
-      code: 'PROGRAMME',
-      deptId: 'dept_programme',
-      headId: 'usr_prog_head',
-      headName: { en: 'Rafiqul Islam', bn: 'রফিকুল ইসলাম' },
-      headTitle: { en: 'Manager', bn: 'ব্যবস্থাপক' },
-      subordinates: [
-        { id: 'usr_prog_1', name: { en: 'Pramila Biswas', bn: 'প্রমিলা বিশ্বাস' }, desig: { en: 'Supervisor (Jalladkhana)', bn: 'সুপারভাইজার (জল্লাদখানা বধ্যভূমি)' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_prog_2', name: { en: 'K. M. Nasir Uddin', bn: 'কে এম নাসির উদ্দিন' }, desig: { en: 'Assistant Programme Officer', bn: 'সহ: প্রোগ্রাম কর্মকর্তা' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_prog_3', name: { en: 'Rashedul Islam Bulu', bn: 'রাশেদুল ইসলাম বুলু' }, desig: { en: 'Office Assistant & Typist', bn: 'অফিস সহকারী ও কম্পিউটার অপারেটর' }, role: 'STAFF' as const, tier: 'STAFF' as const }
-      ]
-    },
-    {
-      code: 'EDUCATION',
-      deptId: 'dept_education',
-      headId: 'usr_edu_head',
-      headName: { en: 'Satyajit Roy Majumder', bn: 'সত্যজিৎ রায় মজুমদার' },
-      headTitle: { en: 'Manager', bn: 'ব্যবস্থাপক' },
-      subordinates: [
-        { id: 'usr_edu_1', name: { en: 'S. M. Mohsin Hossain', bn: 'এস এম মোহসীন হোসেন' }, desig: { en: 'Co-Manager', bn: 'সহকারী ব্যবস্থাপক' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_edu_2', name: { en: 'Ranjan Kumar Singh', bn: 'রঞ্জন কুমার সিংহ' }, desig: { en: 'Programme Officer (Outreach)', bn: 'প্রোগ্রাম কর্মকর্তা-রিচ আউট' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_edu_3', name: { en: 'Ronika Islam', bn: 'রনিকা ইসলাম' }, desig: { en: 'Programme Officer (Outreach)', bn: 'প্রোগ্রাম কর্মকর্তা-আউটরিচ' }, role: 'OFFICER' as const, tier: 'OFFICER' as const }
-      ]
-    },
-    {
-      code: 'ARCHIVE',
-      deptId: 'dept_archive',
-      headId: 'usr_archive_head',
-      headName: { en: 'Amena Khatun', bn: 'আমেনা খাতুন' },
-      headTitle: { en: 'Curator', bn: 'কিউরেটর' },
-      subordinates: [
-        { id: 'usr_archive_1', name: { en: 'Shri Montu Basu', bn: 'শ্রী মন্টু বসু' }, desig: { en: 'Assistant Archive Officer', bn: 'সহ: আর্কাইভ কর্মকর্তা' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_archive_2', name: { en: 'Rezaul Ahmed', bn: 'রেজাউল আহমেদ' }, desig: { en: 'Assistant Archive Officer', bn: 'সহ: আর্কাইভ কর্মকর্তা' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_archive_3', name: { en: 'Mirza Mahmud Ahmed', bn: 'মির্জা মাহমুদ আহমেদ' }, desig: { en: 'Research Assistant (Archive)', bn: 'গবেষণা সহকারী-আর্কাইভ' }, role: 'STAFF' as const, tier: 'STAFF' as const }
-      ]
-    },
-    {
-      code: 'RESEARCH',
-      deptId: 'dept_research',
-      headId: 'usr_research_head',
-      headName: { en: 'Rehina Begum', bn: 'রেহিনা বেগম' },
-      headTitle: { en: 'Manager', bn: 'ব্যবস্থাপক' },
-      subordinates: [
-        { id: 'usr_research_1', name: { en: 'Sabrina Afreen Tonny', bn: 'সাবরিনা আফরিন তন্বী' }, desig: { en: 'Research Associate', bn: 'গবেষণা সহযোগী' }, role: 'OFFICER' as const, tier: 'OFFICER' as const },
-        { id: 'usr_research_2', name: { en: 'Umme Kulsum Mony', bn: 'উম্মে কুলসুম মুন্নী' }, desig: { en: 'Assistant Librarian', bn: 'সহ: লাইব্রেরিয়ান' }, role: 'OFFICER' as const, tier: 'OFFICER' as const }
-      ]
-    },
-    {
-      code: 'MAINTENANCE',
-      deptId: 'dept_maintenance',
-      headId: 'usr_maint_head',
-      headName: { en: 'Sagar Sikdar', bn: 'সাগর শিকদার' },
-      headTitle: { en: 'Maintenance Engineer', bn: 'রক্ষণাবেক্ষণ প্রকৌশলী' },
-      subordinates: [
-        { id: 'usr_maint_1', name: { en: 'Abul Hossain Shamim', bn: 'আবুল হোসেন শামীম' }, desig: { en: 'Sound System Operator', bn: 'লাইট ও সাউন্ড সিস্টেম অপারেটর' }, role: 'STAFF' as const, tier: 'STAFF' as const },
-        { id: 'usr_maint_2', name: { en: 'Sumaiya Akter', bn: 'সুমাইয়া আক্তার' }, desig: { en: 'AC Operator', bn: 'এসি অপারেটর' }, role: 'STAFF' as const, tier: 'STAFF' as const },
-        { id: 'usr_maint_3', name: { en: 'Md. Suman', bn: 'মো: সুমন' }, desig: { en: 'Technician', bn: 'টেকনিশিয়ান' }, role: 'STAFF' as const, tier: 'STAFF' as const }
-      ]
-    },
-    {
-      code: 'COMMUNICATIONS',
-      deptId: 'dept_communications',
-      headId: 'usr_comm_head',
-      headName: { en: 'Tanveer Hasan', bn: 'তানভীর হাসান' },
-      headTitle: { en: 'Head of Communications', bn: 'যোগাযোগ প্রধান' },
-      subordinates: [
-        { id: 'usr_comm_1', name: { en: 'Nusrat Jahan', bn: 'নুসরাত জাহান' }, desig: { en: 'Public Relations Officer', bn: 'জনসংযোগ কর্মকর্তা' }, role: 'OFFICER' as const, tier: 'OFFICER' as const }
-      ]
-    }
-  ];
-
-  // Running counter for unique IDs across all staff
-  let staffUidCounter = 1;
-
-  deptsSeed.forEach((d) => {
-    const headUid = `LWM-${String(staffUidCounter++).padStart(5, '0')}`;
-    // Dept Head
-    usersData.push({
-      _id: d.headId,
-      employeeId: `LWM-${d.code}-001`,
-      uniqueId: headUid,
-      name: d.headName,
-      email: `${d.code.toLowerCase()}.head@lwmbd.org`,
-      password: defaultPassword,
-      designation: d.headTitle,
-      departmentId: d.deptId,
-      role: 'DEPT_HEAD',
-      tier: 'DEPT_HEAD',
-      isActive: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z'
-    });
-
-    // Update headId in department
-    const foundDept = departmentsData.find(dept => dept._id === d.deptId);
+  // Bind Department headIds to corresponding department heads in MASTER_PERSONNEL
+  MASTER_PERSONNEL.filter(p => p.role === 'DEPT_HEAD' && p.departmentId).forEach(head => {
+    const foundDept = departmentsData.find(dept => dept._id === head.departmentId);
     if (foundDept) {
-      foundDept.headId = d.headId;
+      foundDept.headId = head._id;
     }
-
-    // Subordinates
-    d.subordinates.forEach((sub, idx) => {
-      const subUid = `LWM-${String(staffUidCounter++).padStart(5, '0')}`;
-      usersData.push({
-        _id: sub.id,
-        employeeId: `LWM-${d.code}-00${idx + 2}`,
-        uniqueId: subUid,
-        name: sub.name,
-        email: `${d.code.toLowerCase()}.staff${idx + 1}@lwmbd.org`,
-        password: defaultPassword,
-        designation: sub.desig,
-        departmentId: d.deptId,
-        role: sub.role,
-        tier: sub.tier,
-        isActive: true,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z'
-      });
-    });
   });
 
   // 3. Flagship Projects
@@ -1001,23 +828,45 @@ export async function seedDatabase(force = false) {
     }
   ];
 
-  // Persist all data into db (which auto-saves to MongoDB Atlas)
-  db.setRawData({
-    users: usersData,
-    departments: departmentsData,
-    tasks: tasksData,
-    taskRequests: taskRequestsData,
-    projects: projectsData,
-    comments: commentsData,
-    notifications: notificationsData,
-    activityLogs: activityLogsData,
-    approvals: approvalsData,
-    events: eventsData,
-    announcements: announcementsData,
-    documents: documentsData
-  });
+  // Persist data into db (which auto-saves to MongoDB)
+  if (!force && isExistingDb) {
+    // Add missing departments
+    departmentsData.forEach(d => {
+      if (!db.departments.some(existing => existing._id === d._id || (existing.code && existing.code.toUpperCase() === d.code.toUpperCase()))) {
+        db.departments.push(d);
+      }
+    });
 
-  console.log(`[Seed] Successfully seeded ${usersData.length} users, ${departmentsData.length} departments, ${tasksData.length} tasks, ${taskRequestsData.length} requests, ${projectsData.length} projects into MongoDB Atlas!`);
+    // Add missing users & update CEO departmentId
+    usersData.forEach(u => {
+      const existing = db.users.find(eu => eu._id === u._id || eu.email.toLowerCase() === u.email.toLowerCase());
+      if (!existing) {
+        db.users.push(u);
+      } else if (u._id === 'usr_ceo' && !existing.departmentId) {
+        existing.departmentId = 'dept_ceo';
+      }
+    });
+
+    await db.save();
+    console.log(`[Seed] Synchronized updates to existing database: ${db.users.length} total users, ${db.departments.length} total departments.`);
+  } else {
+    db.setRawData({
+      users: usersData,
+      departments: departmentsData,
+      tasks: tasksData,
+      taskRequests: taskRequestsData,
+      projects: projectsData,
+      comments: commentsData,
+      notifications: notificationsData,
+      activityLogs: activityLogsData,
+      approvals: approvalsData,
+      events: eventsData,
+      announcements: announcementsData,
+      documents: documentsData
+    });
+    console.log(`[Seed] Successfully seeded ${usersData.length} users, ${departmentsData.length} departments, ${tasksData.length} tasks, ${taskRequestsData.length} requests, ${projectsData.length} projects into MongoDB!`);
+  }
+
   await ensureSuperAdminUser();
 }
 

@@ -21,6 +21,7 @@ import { PerformancePage } from './pages/PerformancePage';
 import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { LoginPage } from './pages/LoginPage';
+import { MessagingPage } from './pages/MessagingPage';
 
 
 
@@ -207,7 +208,8 @@ function MainApp() {
             <EmployeesPage
               onOpenTaskDetail={setActiveTaskId}
               onRequestWorkFromUser={targetUser => {
-                setIsCreateRequestOpen(true);
+                setPrefilledAssigneeId(targetUser._id);
+                setIsCreateTaskOpen(true);
               }}
             />
           )}
@@ -242,7 +244,9 @@ function MainApp() {
             <ActivityLogsPage />
           )}
 
-
+          {currentTab === 'messages' && (
+            <MessagingPage />
+          )}
 
         </main>
       </div>

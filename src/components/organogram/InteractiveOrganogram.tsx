@@ -10,6 +10,7 @@ import {
 interface OrganogramData {
   trustees: User[];
   ceo: User | null;
+  ceoStaff?: User[];
   departments: Array<{
     _id: string;
     code: string;
@@ -169,6 +170,45 @@ export const InteractiveOrganogram: React.FC<InteractiveOrganogramProps> = ({
                 <span>•</span>
                 <span>Plot 1/1 Agargaon</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* CEO Office Staff (Under CEO) */}
+        {data.ceoStaff && data.ceoStaff.length > 0 && (
+          <div className="mt-4 w-full max-w-4xl bg-red-50/70 dark:bg-red-950/20 rounded-2xl border border-red-200/80 dark:border-red-900/40 p-4 shadow-xs">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-red-200/60 dark:border-red-900/40">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-700"></span>
+                <span className="text-xs font-bold text-red-950 dark:text-red-300 uppercase tracking-wider">
+                  CEO Office Staff Section (প্রধান নির্বাহীর দপ্তর)
+                </span>
+                <span className="text-xs text-red-700/80 dark:text-red-400/80 font-medium">
+                  ({data.ceoStaff.length} Direct Staff)
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {data.ceoStaff.map(staff => (
+                <div
+                  key={staff._id}
+                  onClick={() => onSelectEmployee?.(staff._id)}
+                  className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-red-100 dark:border-slate-800 shadow-xs hover:border-red-300 cursor-pointer transition-all flex items-center gap-2.5"
+                >
+                  <UserAvatar name={staff.name} role={staff.role} size="sm" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                      {staff.name.en}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-sans truncate">
+                      {staff.name.bn}
+                    </div>
+                    <div className="text-[10px] font-medium text-red-800 dark:text-red-400 truncate">
+                      {staff.designation.en}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

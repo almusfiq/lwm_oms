@@ -23,7 +23,7 @@ export interface User {
   employeeId: string;
   uniqueId: string;       // e.g. "LWM-00001" — can be used to login
   name: LocalizedString;
-  email: string;          // e.g. "ceo@lwmbd.org"  — can be used to login
+  email: string;          // e.g. "naasehun.ameen@lwmbd.org" — used to login
   password?: string;
   passwordHash?: string;
   designation: LocalizedString;
@@ -311,6 +311,18 @@ export interface OfficeDocument {
   departmentId?: string;
   uploadedBy: string;
   isConfidential?: boolean;
+  createdAt: string;
+}
+
+export interface DirectMessage {
+  _id: string;
+  senderId: string;
+  subject: string;
+  body: string;
+  recipientType: 'individual' | 'department' | 'all';
+  departmentId?: string;
+  recipientIds: string[];
+  readBy: string[];
   createdAt: string;
 }
 

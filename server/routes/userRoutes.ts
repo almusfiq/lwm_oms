@@ -21,6 +21,12 @@ userRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
     if (!isSuperAdmin && (activeOnly === 'true' || activeOnly === undefined)) {
       list = list.filter(u => u.isActive);
     }
+
+    // Super Admin accounts are hidden from all selectors for non-Super Admin callers.
+    // Super Admins manage the system but are not assignable to tasks or visible in dropdowns.
+    if (!isSuperAdmin) {
+      list = list.filter(u => getEffectiveRole(u) !== 'SUPER_ADMIN');
+    }
   }
 
   if (departmentId && typeof departmentId === 'string') {

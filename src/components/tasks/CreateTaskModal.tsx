@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../common/Modal';
 import { EmployeeSelector } from '../common/EmployeeSelector';
-import { DepartmentSelector } from '../common/DepartmentSelector';
-import { Project, TaskPriority, User } from '../../types';
+import { TaskPriority, User } from '../../types';
 import { getUserRole, isHigherLevel } from '../../utils/hierarchy';
 import {
   Plus, Trash2, Upload, X, FileText, Image, Table2,
-  Presentation, File, Paperclip, AlertCircle, CheckCircle2, Loader2
+  Presentation, File, Paperclip, AlertCircle, CheckCircle2, Loader2,
+  ArrowUpRight, Building2
 } from 'lucide-react';
 
 interface UploadedFile {
@@ -36,8 +36,8 @@ interface CreateTaskModalProps {
   onTaskCreated: (task?: any) => void;
   onRequestCreated?: (request?: any) => void;
   defaultDepartmentId?: string;
-  defaultProjectId?: string;
-  prefilledProjectId?: string;
+  defaultProjectId?: string;   // kept for backward compat, no longer used
+  prefilledProjectId?: string; // kept for backward compat, no longer used
   prefilledAssigneeId?: string;
 }
 
@@ -59,14 +59,6 @@ function getFileIcon(type: string, name: string) {
   return <File className="w-4 h-4 text-slate-400" />;
 }
 
-function getProjectName(project: Project): string {
-  const name = project.name as unknown;
-  if (typeof name === 'string') return name;
-  if (name && typeof name === 'object' && 'en' in name && typeof name.en === 'string') {
-    return name.en;
-  }
-  return project.projectId;
-}
 
 const ALLOWED_EXTENSIONS = [
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
@@ -79,8 +71,6 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   onTaskCreated,
   onRequestCreated,
   defaultDepartmentId,
-  defaultProjectId,
-  prefilledProjectId,
   prefilledAssigneeId
 }) => {
   const { user } = useAuth();
@@ -89,6 +79,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   // Form fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedSection, setSelectedSection] = useState('ALL');
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [departmentId, setDepartmentId] = useState(defaultDepartmentId || user?.departmentId || '');
   const [sourceDepartmentId, setSourceDepartmentId] = useState(user?.departmentId || '');
   const [targetDepartmentId, setTargetDepartmentId] = useState('');
@@ -98,9 +91,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
   const [startDate, setStartDate] = useState('');
-  const [projectId, setProjectId] = useState(defaultProjectId || '');
   const [visibility, setVisibility] = useState('ORGANIZATION');
-  const [projects, setProjects] = useState<Project[]>([]);
   const [checklist, setChecklist] = useState<string[]>([]);
   const [newChecklistText, setNewChecklistText] = useState('');
   const [tags, setTags] = useState('');
@@ -121,7 +112,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       setStartDate(new Date().toISOString().split('T')[0]);
       setSourceDepartmentId(user?.departmentId || '');
       setDepartmentId(defaultDepartmentId || user?.departmentId || '');
-      api.projects.list().then(res => setProjects(Array.isArray(res) ? res : [])).catch(console.error);
+      setSelectedSection('ALL');
+      
+      api.departments.list().then(res => setDepartments(Array.isArray(res) ? res : [])).catch(console.error);
+      api.users.list({ activeOnly: true }).then(res => setAllUsers(Array.isArray(res) ? res : [])).catch(console.error);
 
       if (prefilledAssigneeId) {
         setPrimaryAssignee(prefilledAssigneeId);
@@ -129,10 +123,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           const matched = Array.isArray(users) ? users.find((u: any) => u._id === prefilledAssigneeId) : null;
           if (matched) {
             setTargetEmployee(matched);
-            if (matched.departmentId) {
-              setTargetDepartmentId(matched.departmentId);
-              setDepartmentId(matched.departmentId);
-            }
+            const dept = matched.departmentId || (getUserRole(matched) === 'TRUSTEE' ? 'TRUSTEE' : 'dept_ceo');
+            setTargetDepartmentId(dept);
+            setDepartmentId(dept);
+            if (getUserRole(matched) === 'TRUSTEE') setSelectedSection('TRUSTEE');
+            else if (matched.departmentId === 'dept_ceo' || getUserRole(matched) === 'CEO') setSelectedSection('CEO');
+            else if (matched.departmentId) setSelectedSection(matched.departmentId);
           }
         }).catch(console.error);
       }
@@ -141,9 +137,80 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       setTitle(''); setDescription(''); setChecklist([]);
       setTags(''); setPrimaryAssignee(''); setCollaborators([]);
       setFileQueue([]); setError(''); setTargetDepartmentId(''); setTargetEmployee(null);
-      setVisibility('ORGANIZATION'); setRequiresApproval(false);
+      setVisibility('ORGANIZATION'); setRequiresApproval(false); setSelectedSection('ALL');
     }
   }, [isOpen, user?.departmentId, defaultDepartmentId, prefilledAssigneeId]);
+
+  // Automated Smart Routing calculation
+  const userRole = getUserRole(user);
+  const isTopLevel = userRole === 'TRUSTEE' || userRole === 'CEO' || userRole === 'SUPER_ADMIN';
+
+  const routing = useMemo(() => {
+    if (!primaryAssignee || !targetEmployee) {
+      return {
+        type: 'DIRECT_TASK',
+        badge: 'Direct Directive',
+        badgeColor: 'emerald',
+        description: 'Creating internal task directive.',
+        buttonText: 'Create Task',
+        isRequest: false
+      };
+    }
+
+    // 1. CEO and Trustee are NEVER affected by cross-department or hierarchy workflow rules
+    if (isTopLevel) {
+      return {
+        type: 'EXECUTIVE_DIRECT',
+        badge: 'Executive Direct Assignment',
+        badgeColor: 'emerald',
+        description: `Task will be directly assigned to ${targetEmployee.name.en} (${targetEmployee.designation.en}) with executive priority.`,
+        buttonText: 'Assign Task',
+        isRequest: false
+      };
+    }
+
+    const targetRole = getUserRole(targetEmployee);
+    const targetDeptId = targetEmployee.departmentId;
+    const userDeptId = user?.departmentId;
+    const isTargetHigher = isHigherLevel(user, targetEmployee);
+    const isCrossDept = Boolean(targetDeptId && userDeptId && targetDeptId !== userDeptId);
+
+    // 2. If target employee is upper level -> Goes as task request to the targeted employee!
+    if (isTargetHigher) {
+      return {
+        type: 'UPPER_LEVEL_REQUEST',
+        badge: 'Task Request (Upper-Level Approval)',
+        badgeColor: 'blue',
+        description: `${targetEmployee.name.en} (${targetEmployee.designation.en}) is higher in hierarchy. This will be sent as a work request for their review and approval.`,
+        buttonText: 'Send Task Request',
+        isRequest: true
+      };
+    }
+
+    // 3. Cross department -> Requires approval from targeted department head
+    if (isCrossDept) {
+      const targetDeptObj = departments.find(d => d._id === targetDeptId || d.code === targetDeptId);
+      const targetDeptName = targetDeptObj?.name?.en || targetEmployee.department?.name?.en || 'Target Department';
+      return {
+        type: 'CROSS_DEPT_REQUEST',
+        badge: 'Cross-Department Request (Approval Required)',
+        badgeColor: 'amber',
+        description: `Target employee is in ${targetDeptName}. Routed to Department Head for review and approval.`,
+        buttonText: 'Submit Cross-Dept Request',
+        isRequest: true
+      };
+    }
+
+    // 4. Same level or lower level within same department -> Direct assign task!
+    return {
+      type: 'DIRECT_ASSIGN',
+      badge: 'Direct Task Assignment',
+      badgeColor: 'emerald',
+      description: `Task will be directly assigned to ${targetEmployee.name.en} (${targetEmployee.designation.en}).`,
+      buttonText: 'Assign Task',
+      isRequest: false
+    };
+  }, [primaryAssignee, targetEmployee, user, isTopLevel, userRole, departments]);
 
   // === File handling ===
   const validateFile = (file: File): string | null => {
@@ -273,11 +340,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         uploadedAttachments = fileQueue.filter(f => f.status === 'done').map(f => f.result!);
       }
 
-      // 2. Route cross-department work or requests through Department Head
-      const finalDeptId = targetDepartmentId || departmentId || user?.departmentId;
-      const isCrossDept = finalDeptId && user?.departmentId && finalDeptId !== user.departmentId;
+      // 2. Automated Smart Routing:
+      //    If routed as a request -> Send as task request (hierarchy review or cross-dept approval)
+      //    Otherwise -> Direct assign task (same dept, same/lower level, or CEO/Trustee)
+      const finalDeptId = targetDepartmentId || targetEmployee?.departmentId || departmentId || user?.departmentId;
 
-      if (isCrossDept || (primaryAssignee && targetEmployee && isHigherLevel(user, targetEmployee))) {
+      if (routing.isRequest) {
         const request = await api.taskRequests.create({
           title: title.trim(),
           description: description.trim(),
@@ -292,18 +360,22 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         return;
       }
 
+      // Collaborators are also included as co-assignees so they get the task
+      const allAssignees = primaryAssignee
+        ? [primaryAssignee, ...collaborators.filter(id => id !== primaryAssignee)]
+        : [...collaborators];
+
       const createdTask = await api.tasks.create({
         title: title.trim(),
         description: description.trim(),
         departmentId: finalDeptId,
         sourceDepartmentId: sourceDepartmentId || user?.departmentId,
         targetDepartmentId: targetDepartmentId || finalDeptId,
-        assignedTo: primaryAssignee ? [primaryAssignee] : [],
+        assignedTo: allAssignees,
         collaborators,
         priority,
         dueDate,
         startDate,
-        projectId: projectId || prefilledProjectId || undefined,
         visibility,
         checklist,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
@@ -329,7 +401,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Create New Task"
-      subtitle="Assign work or send it as a request when the recipient is higher in the hierarchy"
+      subtitle="Directly assign work or automatically route as request based on organizational hierarchy"
       maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
@@ -374,53 +446,130 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           />
         </div>
 
-        {/* Assign to — can select ANY employee from any dept */}
-        <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-          <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-            Assignment (Cross-Department Supported)
+        {/* Task Recipient & Dynamic Smart Assignment */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-red-700" />
+              <span>Target Personnel & Routing</span>
+            </div>
+            {routing && (
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                routing.badgeColor === 'emerald'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/40'
+                  : routing.badgeColor === 'blue'
+                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-300/40'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/40'
+              }`}>
+                {routing.badge}
+              </span>
+            )}
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <DepartmentSelector
-              label="Target Department"
-              value={targetDepartmentId}
-              onChange={(deptId) => {
-                setTargetDepartmentId(deptId);
-                setDepartmentId(deptId);
-                setPrimaryAssignee('');
-                setTargetEmployee(null);
-              }}
-            />
-            <EmployeeSelector
-              label="Assign To (Employee)"
-              value={primaryAssignee}
-              onChange={(userId, userObj) => {
-                setPrimaryAssignee(userId);
-                setTargetEmployee(userObj || null);
-                if (userObj?.departmentId) {
-                  setTargetDepartmentId(userObj.departmentId);
-                  setDepartmentId(userObj.departmentId);
+            {/* Section / Department Dropdown */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Department / Section
+              </label>
+              <select
+                value={selectedSection}
+                onChange={e => {
+                  const val = e.target.value;
+                  setSelectedSection(val);
+                  setPrimaryAssignee('');
+                  setTargetEmployee(null);
+                  if (val !== 'ALL' && val !== 'TRUSTEE') {
+                    setTargetDepartmentId(val);
+                    setDepartmentId(val);
+                  }
+                }}
+                className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              >
+                <option value="ALL">👥 All Sections & Departments</option>
+                {/* Only CEO and Dept Head can request tasks to Trustees */}
+                {(userRole === 'CEO' || userRole === 'TRUSTEE' || userRole === 'SUPER_ADMIN' || userRole === 'DEPT_HEAD') && (
+                  <option value="TRUSTEE">🏛️ Trustee Board</option>
+                )}
+                <option value="CEO">👔 CEO & Office Section</option>
+                {departments
+                  .filter(d => d._id !== 'dept_ceo' && d.code !== 'CEO')
+                  .map(d => (
+                    <option key={d._id} value={d._id}>
+                      🏢 {d.name?.bn || d.name?.en} ({d.name?.en})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Target Employee Selector */}
+            <div>
+              <EmployeeSelector
+                label="Target Employee"
+                value={primaryAssignee}
+                departmentId={selectedSection}
+                onChange={(userId, userObj) => {
+                  setPrimaryAssignee(userId);
+                  setTargetEmployee(userObj || null);
+                  if (userObj) {
+                    if (userObj.role === 'TRUSTEE') {
+                      setSelectedSection('TRUSTEE');
+                    } else if (userObj.departmentId === 'dept_ceo' || userObj.role === 'CEO') {
+                      setSelectedSection('CEO');
+                      setTargetDepartmentId('dept_ceo');
+                      setDepartmentId('dept_ceo');
+                    } else if (userObj.departmentId) {
+                      setSelectedSection(userObj.departmentId);
+                      setTargetDepartmentId(userObj.departmentId);
+                      setDepartmentId(userObj.departmentId);
+                    }
+                  }
+                }}
+                placeholder={
+                  selectedSection === 'TRUSTEE'
+                    ? 'Select a Trustee...'
+                    : selectedSection === 'CEO'
+                    ? 'Select CEO or direct report...'
+                    : 'Choose employee...'
                 }
-              }}
-              departmentId={targetDepartmentId}
-              placeholder="Search any employee..."
-            />
+                required
+              />
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <DepartmentSelector
-              label="Source Department (Requester)"
-              value={sourceDepartmentId}
-              onChange={setSourceDepartmentId}
-            />
-            <DepartmentSelector
-              label="Owning Department"
-              value={departmentId}
-              onChange={setDepartmentId}
-              required
-            />
-          </div>
+
+          {/* Dynamic Routing Notification Card */}
+          {routing && (
+            <div className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
+              routing.badgeColor === 'emerald'
+                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800/40 dark:text-emerald-200'
+                : routing.badgeColor === 'blue'
+                ? 'bg-blue-50/80 border-blue-200 text-blue-900 dark:bg-blue-950/30 dark:border-blue-800/40 dark:text-blue-200'
+                : 'bg-amber-50/80 border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-800/40 dark:text-amber-200'
+            }`}>
+              <div className="mt-0.5 shrink-0 text-sm">
+                {routing.badgeColor === 'emerald' ? '⚡' : routing.badgeColor === 'blue' ? '📋' : '🏢'}
+              </div>
+              <div className="leading-relaxed">
+                <span className="font-bold">{routing.badge}: </span>
+                {routing.description}
+              </div>
+            </div>
+          )}
+
+          {/* Collaborators */}
           <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Collaborators / Co-Assignees
+              </label>
+              {collaborators.length > 0 && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold">
+                  {collaborators.length} added — each is also assigned this task
+                </span>
+              )}
+            </div>
             <EmployeeSelector
-              label="Add Collaborators / Co-assignees"
+              label=""
               value=""
               onChange={(userId) => {
                 if (userId && !collaborators.includes(userId) && userId !== primaryAssignee) {
@@ -428,23 +577,34 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 }
               }}
               excludeUserIds={primaryAssignee ? [primaryAssignee, ...collaborators] : collaborators}
-              placeholder="Select additional team members..."
+              placeholder="Select co-assignees from any department (each gets the task too)..."
             />
             {collaborators.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {collaborators.map(cId => (
-                  <span key={cId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-xs">
-                    <span>{cId}</span>
-                    <button
-                      type="button"
-                      onClick={() => setCollaborators(prev => prev.filter(id => id !== cId))}
-                      className="text-slate-400 hover:text-red-600 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </span>
-                ))}
+                {collaborators.map(cId => {
+                  const cUser = allUsers.find(u => u._id === cId);
+                  return (
+                    <span key={cId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800/50 shadow-xs">
+                      <span className="font-semibold">{cUser?.name?.en || cId}</span>
+                      {cUser?.designation?.en && (
+                        <span className="text-blue-500 dark:text-blue-400 text-[10px]">· {cUser.designation.en}</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setCollaborators(prev => prev.filter(id => id !== cId))}
+                        className="text-blue-400 hover:text-red-600 transition-colors ml-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
+            )}
+            {collaborators.length === 0 && (
+              <p className="text-[11px] text-slate-400 mt-1.5">
+                Adding collaborators assigns this task to them too — they can all view each other's submission files.
+              </p>
             )}
           </div>
         </div>
@@ -498,22 +658,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           </div>
         </div>
 
-        {/* Project */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-            Link to Project
-          </label>
-          <select
-            value={projectId}
-            onChange={e => setProjectId(e.target.value)}
-            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none"
-          >
-            <option value="">No Project (Ad-hoc Task)</option>
-            {projects.map(p => (
-              <option key={p._id} value={p._id}>{getProjectName(p)} ({p.projectId})</option>
-            ))}
-          </select>
-        </div>
+
 
         {/* ===== FILE ATTACHMENTS ===== */}
         <div>
@@ -689,19 +834,26 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           <button
             type="submit"
             disabled={submitting}
-            className="px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs disabled:opacity-50 transition-colors flex items-center gap-2"
+            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white shadow-xs disabled:opacity-50 transition-colors flex items-center gap-2 ${
+              routing.badgeColor === 'blue'
+                ? 'bg-blue-700 hover:bg-blue-800'
+                : routing.badgeColor === 'amber'
+                ? 'bg-amber-700 hover:bg-amber-800'
+                : 'bg-red-800 hover:bg-red-900'
+            }`}
           >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {fileQueue.some(f => f.status === 'uploading') ? 'Uploading files...' : 'Submitting...'}
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    Assign / Request {fileQueue.length > 0 ? `(${fileQueue.length} file${fileQueue.length > 1 ? 's' : ''})` : ''}
-                  </>
-                )}
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {fileQueue.some(f => f.status === 'uploading') ? 'Uploading files...' : 'Submitting...'}
+              </>
+            ) : (
+              <>
+                {routing.isRequest ? <ArrowUpRight className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>{routing.buttonText}</span>
+                {fileQueue.length > 0 && <span className="text-[11px] opacity-80">({fileQueue.length} file{fileQueue.length > 1 ? 's' : ''})</span>}
+              </>
+            )}
           </button>
         </div>
       </form>

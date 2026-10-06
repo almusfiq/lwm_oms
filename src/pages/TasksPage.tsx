@@ -132,17 +132,8 @@ export const TasksPage: React.FC<TasksPageProps> = ({
 
           <button
             type="button"
-            onClick={onOpenCreateRequest}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/40 flex items-center gap-1.5 transition-colors"
-          >
-            <GitPullRequest className="w-3.5 h-3.5 text-red-600" />
-            <span>Request Work</span>
-          </button>
-
-          <button
-            type="button"
             onClick={onOpenCreateTask}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New Task</span>

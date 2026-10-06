@@ -101,8 +101,19 @@ taskRequestRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Respon
     let primaryTargetEmployeeId = targetEmployeeId;
     let suggestedEmployeeId: string | undefined = undefined;
 
+    // Restriction: Only CEO and Dept Head can submit task requests to Trustees
+    const isTargetTopLevel = targetUser?.role === 'TRUSTEE' || targetUser?.role === 'CEO' || targetUser?.role === 'SUPER_ADMIN';
+    if (targetUser?.role === 'TRUSTEE') {
+      const requesterRole = getEffectiveRole(req.user!);
+      if (requesterRole !== 'CEO' && requesterRole !== 'DEPT_HEAD' && requesterRole !== 'DEPARTMENT_HEAD' && requesterRole !== 'TRUSTEE' && requesterRole !== 'SUPER_ADMIN') {
+        res.status(403).json({ success: false, message: 'Only the CEO or a Department Head can submit task requests to the Trustee Board.' });
+        return;
+      }
+    }
+
     // Cross-department request logic: Route to Head of Target Department
-    if (finalTargetDeptId !== requesterDeptId) {
+    // (Unless the request is targeted specifically to a Trustee, CEO, or Super Admin)
+    if (!isTargetTopLevel && finalTargetDeptId !== requesterDeptId) {
       const targetDeptObj = db.departments.find(d => d._id === finalTargetDeptId);
       let deptHead = targetDeptObj?.headId ? db.users.find(u => u._id === targetDeptObj.headId && u.isActive) : null;
       if (!deptHead) {

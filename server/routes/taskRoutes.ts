@@ -249,6 +249,20 @@ taskRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Response) => 
       return;
     }
 
+    // Super Admin users cannot be assigned to tasks — they are system administrators, not task participants
+    const superAdminAssignee = assignedToIds.find(id => getEffectiveRole(db.users.find(u => u._id === id) as any) === 'SUPER_ADMIN');
+    const superAdminCollaborator = collaboratorIds.find(id => getEffectiveRole(db.users.find(u => u._id === id) as any) === 'SUPER_ADMIN');
+    if (superAdminAssignee || superAdminCollaborator) {
+      res.status(403).json({ success: false, message: 'Super Admin accounts cannot be assigned to tasks.' });
+      return;
+    }
+
+    // Block Super Admin from creating tasks for others
+    if (getEffectiveRole(req.user!) === 'SUPER_ADMIN') {
+      res.status(403).json({ success: false, message: 'Super Admin accounts cannot create or assign tasks.' });
+      return;
+    }
+
     if (!title || !dueDate) {
       res.status(400).json({ success: false, message: 'Title and due date are required' });
       return;
@@ -304,15 +318,18 @@ taskRoutes.post('/', requireAuth, (req: AuthenticatedRequest, res: Response) => 
       metadata: { taskId: newTask.taskId, title: newTask.title, priority: newTask.priority }
     });
 
-    // Notify assignees
+    // Notify all assignees (includes collaborators who are also co-assigned)
+    const notifiedIds = new Set<string>();
     newTask.assignedTo.forEach(assigneeId => {
-      if (assigneeId !== creatorId) {
+      if (assigneeId !== creatorId && !notifiedIds.has(assigneeId)) {
+        notifiedIds.add(assigneeId);
+        const isCollaborator = collaboratorIds.includes(assigneeId);
         db.notifications.unshift({
           _id: db.generateId('notif'),
           recipientId: assigneeId,
           type: 'TASK_ASSIGNED',
-          title: `New Task Assigned: ${newTask.taskId}`,
-          message: `${req.user?.name.en} assigned you "${newTask.title}".`,
+          title: `${isCollaborator ? 'Collaborative Task Assigned' : 'New Task Assigned'}: ${newTask.taskId}`,
+          message: `${req.user?.name.en} ${isCollaborator ? 'added you as a collaborator on' : 'assigned you'} "${newTask.title}".`,
           resourceType: 'TASK',
           resourceId: newTask._id,
           isRead: false,
@@ -512,7 +529,7 @@ taskRoutes.post('/:id/review', requireAuth, (req: AuthenticatedRequest, res: Res
     return;
   }
 
-  const { action, note, targetLevel } = req.body;
+  const { action, note, targetLevel, targetTrusteeId } = req.body;
   const user = req.user!;
   const userRole = user.role;
 
@@ -661,8 +678,15 @@ taskRoutes.post('/:id/review', requireAuth, (req: AuthenticatedRequest, res: Res
 
     let approverId: string | null = null;
     if (level === 'TRUSTEE') {
-      const trustee = db.users.find(u => u.role === 'TRUSTEE' && u.isActive);
-      approverId = trustee?._id || user._id;
+      // CEO must pick a specific trustee; fall back to first active trustee if not provided
+      if (targetTrusteeId) {
+        const chosenTrustee = db.users.find(u => u._id === targetTrusteeId && u.isActive && (u.role === 'TRUSTEE' || (u as any).roleId === 'TRUSTEE'));
+        approverId = chosenTrustee?._id || null;
+      }
+      if (!approverId) {
+        const trustee = db.users.find(u => u.role === 'TRUSTEE' && u.isActive);
+        approverId = trustee?._id || user._id;
+      }
     } else if (level === 'CEO') {
       const ceo = db.users.find(u => u.role === 'CEO' && u.isActive);
       approverId = ceo?._id || user._id;
@@ -704,20 +728,35 @@ taskRoutes.post('/:id/review', requireAuth, (req: AuthenticatedRequest, res: Res
     });
 
     if (level === 'TRUSTEE') {
-      const allTrustees = db.users.filter(u => u.role === 'TRUSTEE' && u.isActive);
-      allTrustees.forEach(t => {
+      // Notify only the selected specific trustee (approverId); if somehow not set, notify all trustees
+      if (approverId) {
         db.notifications.unshift({
           _id: db.generateId('notif'),
-          recipientId: t._id,
+          recipientId: approverId,
           type: 'APPROVAL_REQUESTED',
           title: `🏛️ Escalated Task Approval: ${task.taskId}`,
-          message: `${user.name.en} referred task "${task.title}" to Trustee Board for final approval.`,
+          message: `${user.name.en} referred task "${task.title}" to you for final approval.`,
           resourceType: 'TASK',
           resourceId: task._id,
           isRead: false,
           createdAt: new Date().toISOString()
         });
-      });
+      } else {
+        const allTrustees = db.users.filter(u => u.role === 'TRUSTEE' && u.isActive);
+        allTrustees.forEach(t => {
+          db.notifications.unshift({
+            _id: db.generateId('notif'),
+            recipientId: t._id,
+            type: 'APPROVAL_REQUESTED',
+            title: `🏛️ Escalated Task Approval: ${task.taskId}`,
+            message: `${user.name.en} referred task "${task.title}" to Trustee Board for final approval.`,
+            resourceType: 'TASK',
+            resourceId: task._id,
+            isRead: false,
+            createdAt: new Date().toISOString()
+          });
+        });
+      }
     } else if (approverId) {
       db.notifications.unshift({
         _id: db.generateId('notif'),

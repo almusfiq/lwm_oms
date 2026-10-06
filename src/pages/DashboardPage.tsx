@@ -107,26 +107,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Staff and Dept Head can make requests */}
-            {!isTrustee && (
-              <button
-                type="button"
-                onClick={onOpenCreateRequest}
-                className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center gap-1.5 transition-colors"
-              >
-                <GitPullRequest className="w-4 h-4" />
-                <span>{isStaff ? 'Request to Dept Head' : isDeptHead || isCEO ? 'Request Work / Event' : 'Request Work'}</span>
-              </button>
-            )}
-
-            {/* Everyone can create/assign tasks */}
+            {/* Unified task creation interface */}
             <button
               type="button"
               onClick={onOpenCreateTask}
-              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white text-slate-900 hover:bg-white/90 shadow-sm flex items-center gap-1.5 transition-colors"
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white text-slate-900 hover:bg-white/90 shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
-              <span>{isStaff ? 'Assign Task to Peer' : 'Assign Task'}</span>
+              <Plus className="w-4 h-4 text-red-700" />
+              <span>Create / Assign Task</span>
             </button>
           </div>
         </div>
