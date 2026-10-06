@@ -250,13 +250,13 @@ export function downloadApprovalPdf(approval: any) {
   printHtml(html, `approval-${approval._id}.pdf`);
 }
 
-/** Generate and print Tasks PDF Report (Supports Ongoing, Completed, and All Tasks) */
-export function downloadTasksPdfReport({
+/** Generate full HTML document for Tasks PDF Report */
+export function generateTasksReportHtml({
   reportTitle,
   scopeName,
   departmentName,
   filterTypeName = 'Ongoing Tasks',
-  tasks,
+  tasks = [],
   generatedBy,
   employee,
 }: {
@@ -267,117 +267,245 @@ export function downloadTasksPdfReport({
   tasks: any[];
   generatedBy: any;
   employee?: any;
-}) {
+}): string {
   const now = new Date().toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' });
+
+  // Calculate statistics
+  const totalCount = tasks.length;
+  const completedCount = tasks.filter((t: any) => t.status === 'COMPLETED').length;
+  const activeCount = tasks.filter((t: any) => t.status !== 'COMPLETED').length;
+  const overdueCount = tasks.filter((t: any) => {
+    if (t.isOverdue) return true;
+    if (t.status === 'COMPLETED') return false;
+    if (!t.dueDate) return false;
+    return new Date(t.dueDate) < new Date();
+  }).length;
+  const resolutionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const tasksHtml = tasks.length > 0 ? tasks.map((t: any, index: number) => {
     const assignees = (t.assignees || []).map((a: any) => a?.name?.en || a?.name || 'Unassigned').join(', ') || 'Unassigned';
-    const requesterName = t.requester?.name?.en || t.creator?.name?.en || 'System / Direct';
-    const sourceDept = t.sourceDepartment?.name?.en || t.sourceDepartment?.code || '—';
-    const targetDept = t.targetDepartment?.name?.en || t.department?.name?.en || t.department?.code || '—';
+    const requesterName = t.requester?.name?.en || t.creator?.name?.en || 'Executive Direct';
+    const sourceDept = t.sourceDepartment?.name?.en || t.sourceDepartment?.code || 'Museum HQ';
+    const targetDept = t.targetDepartment?.name?.en || t.department?.name?.en || t.department?.code || 'General';
     const checklistDone = t.checklist?.filter((c: any) => c.completed).length || 0;
     const checklistTotal = t.checklist?.length || 0;
+    const progress = Math.min(100, Math.max(0, t.progress ?? 0));
 
+    const isTaskOverdue = t.isOverdue || (t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'COMPLETED');
     const priorityColor = t.priority === 'URGENT' ? '#dc2626' : t.priority === 'HIGH' ? '#ea580c' : t.priority === 'MEDIUM' ? '#2563eb' : '#16a34a';
+    const statusBg = t.status === 'COMPLETED' ? '#d1fae5' : t.status === 'IN_PROGRESS' ? '#dbeafe' : t.status === 'IN_REVIEW' ? '#fef3c7' : '#f1f5f9';
+    const statusText = t.status === 'COMPLETED' ? '#065f46' : t.status === 'IN_PROGRESS' ? '#1e40af' : t.status === 'IN_REVIEW' ? '#92400e' : '#334155';
+
+    const checklistHtml = t.checklist && t.checklist.length > 0 ? `
+      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
+        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">
+          Checklist Items (${checklistDone}/${checklistTotal} Completed)
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          ${t.checklist.map((c: any) => `
+            <div style="font-size: 10px; display: flex; align-items: center; gap: 6px; color: ${c.completed ? '#059669' : '#334155'};">
+              <span style="display: inline-block; width: 12px; height: 12px; border: 1.5px solid ${c.completed ? '#059669' : '#94a3b8'}; border-radius: 2px; text-align: center; line-height: 10px; font-size: 9px; font-weight: bold; background: ${c.completed ? '#059669' : 'transparent'}; color: white;">
+                ${c.completed ? '✓' : ''}
+              </span>
+              <span style="${c.completed ? 'text-decoration: line-through; color: #94a3b8;' : ''}">${c.title}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : '';
 
     return `
-      <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 14px; page-break-inside: avoid; background: #ffffff;">
+      <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 12px; page-break-inside: avoid; background: #ffffff;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
           <div>
             <span style="font-family: monospace; font-weight: 700; color: #7f1d1d; font-size: 11px;">#${index + 1} • ${t.taskId || 'TSK-000'}</span>
-            <h3 style="margin: 4px 0 2px; font-size: 14px; color: #0f172a; font-weight: 700;">${t.title}</h3>
+            <h3 style="margin: 3px 0 2px; font-size: 13px; color: #0f172a; font-weight: 700;">${t.title}</h3>
           </div>
-          <div style="text-align: right;">
-            <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; color: white; background: ${priorityColor}; text-transform: uppercase;">${t.priority || 'MEDIUM'}</span>
-            <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Status: <strong style="color:${t.status === 'COMPLETED' ? '#059669' : '#0f172a'}">${(t.status || 'IN_PROGRESS').replace(/_/g, ' ')}</strong></div>
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #f1f5f9; padding: 8px 12px; border-radius: 6px; font-size: 11px; margin-bottom: 10px;">
-          <div>
-            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block;">Source Dept & Requester</span>
-            <strong style="color: #334155;">${sourceDept}</strong> (${requesterName})
-          </div>
-          <div>
-            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block;">Target Dept & Assigned Staff</span>
-            <strong style="color: #0f172a;">${targetDept}</strong> (${assignees})
-          </div>
-          <div>
-            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block;">Due Date & Progress</span>
-            <strong style="color: #b91c1c;">${t.dueDate || '—'}</strong> | Progress: <strong>${t.progress ?? 0}%</strong>
+          <div style="text-align: right; display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 9px; font-weight: 700; color: white; background: ${priorityColor}; text-transform: uppercase;">
+              ${t.priority || 'MEDIUM'}
+            </span>
+            <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 9px; font-weight: 700; color: ${statusText}; background: ${statusBg}; text-transform: uppercase;">
+              ${(t.status || 'IN_PROGRESS').replace(/_/g, ' ')}
+            </span>
           </div>
         </div>
 
-        ${t.description ? `<div style="font-size: 11px; color: #334155; line-height: 1.5; margin-bottom: 8px;"><strong>Description & Scope:</strong> ${t.description}</div>` : ''}
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #f1f5f9; padding: 8px 12px; border-radius: 6px; font-size: 11px; margin-bottom: 8px;">
+          <div>
+            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block; font-weight: 600;">Source & Requester</span>
+            <strong style="color: #334155;">${sourceDept}</strong>
+            <div style="color: #64748b; font-size: 10px;">${requesterName}</div>
+          </div>
+          <div>
+            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block; font-weight: 600;">Target Dept & Assignees</span>
+            <strong style="color: #0f172a;">${targetDept}</strong>
+            <div style="color: #64748b; font-size: 10px;">${assignees}</div>
+          </div>
+          <div>
+            <span style="color: #94a3b8; font-size: 9px; text-transform: uppercase; display: block; font-weight: 600;">Deadline & Progress</span>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <strong style="color: ${isTaskOverdue ? '#dc2626' : '#0f172a'};">${t.dueDate || 'No deadline'}</strong>
+              <span style="font-weight: 700; font-family: monospace; font-size: 10px;">${progress}%</span>
+            </div>
+            <div style="width: 100%; height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 3px;">
+              <div style="width: ${progress}%; height: 100%; background: ${t.status === 'COMPLETED' ? '#059669' : '#7f1d1d'}; border-radius: 3px;"></div>
+            </div>
+            ${isTaskOverdue ? '<div style="color: #dc2626; font-size: 9px; font-weight: 700; margin-top: 2px;">⚠️ OVERDUE SLIPPAGE</div>' : ''}
+          </div>
+        </div>
+
+        ${t.description ? `<div style="font-size: 11px; color: #334155; line-height: 1.5; margin-bottom: 6px;"><strong>Description & Scope:</strong> ${t.description}</div>` : ''}
+
+        ${checklistHtml}
 
         <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; border-top: 1px dashed #e2e8f0; padding-top: 6px; margin-top: 6px;">
-          <span>Checklist Progress: <strong>${checklistDone}/${checklistTotal} items completed</strong></span>
+          <span>Checklist: <strong>${checklistDone}/${checklistTotal} items completed</strong></span>
           <span>Attachments: <strong>${t.attachments?.length || 0} file(s)</strong></span>
         </div>
       </div>
     `;
-  }).join('') : '<div style="padding: 30px; text-align: center; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 8px;">No tasks found matching this criteria.</div>';
+  }).join('') : '<div style="padding: 40px; text-align: center; color: #94a3b8; border: 1.5px dashed #cbd5e1; border-radius: 8px; font-size: 12px;">No directives or tasks match this criteria.</div>';
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <title>${reportTitle}</title>
-  <style>${STYLES}</style>
+  <style>
+    ${STYLES}
+    @page {
+      size: A4;
+      margin: 15mm 15mm 15mm 15mm;
+    }
+  </style>
 </head>
 <body>
+  <!-- Letterhead Header -->
   <div class="header">
-    <div class="logo-box">LWM</div>
-    <div>
-      <div class="org-name">Liberation War Museum (মুক্তিযুদ্ধ জাদুঘর)</div>
-      <div class="org-sub">Plot 1/1, Sher-e-Bangla Nagar, Agargaon, Dhaka-1207 • Official Task PDF Report</div>
+    <div class="logo-box" style="overflow: hidden; padding: 0; background: #ffffff; border: 1.5px solid #7f1d1d; width: 52px; height: 52px;">
+      <img src="/logo.jpeg" alt="LWM Logo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.parentElement.innerText='LWM';" />
     </div>
-  </div>
-
-  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; border-radius: 8px;">
-    <div>
-      <h2 style="font-size: 18px; color: #7f1d1d;">${reportTitle}</h2>
-      <div style="font-size: 11px; color: #475569; margin-top: 4px;">
-        Report Scope: <strong>${scopeName}</strong> 
-        ${departmentName ? `• Department: <strong>${departmentName}</strong>` : ''} 
-        ${employee ? `• Employee: <strong>${employee.name?.en || employee.name || 'Personnel'} (${employee.designation?.en || employee.designation || employee.role || 'Staff'})</strong>` : ''} 
-        • Category: <strong>${filterTypeName}</strong>
+    <div style="flex: 1;">
+      <div class="org-name" style="font-size: 16px; font-weight: 800; color: #7f1d1d; letter-spacing: -0.02em;">
+        Liberation War Museum (মুক্তিযুদ্ধ জাদুঘর)
+      </div>
+      <div class="org-sub" style="font-size: 10px; color: #475569; margin-top: 2px;">
+        Plot 1/1, Sher-e-Bangla Nagar, Agargaon, Dhaka-1207 • Operations Management System (OMS)
       </div>
     </div>
     <div style="text-align: right; font-size: 10px; color: #64748b;">
-      <div>Generated By: <strong>${generatedBy?.name?.en || generatedBy?.name || 'Authorized User'}</strong></div>
-      <div>Designation/Role: <strong>${generatedBy?.designation?.en || generatedBy?.role || 'Authority'}</strong></div>
-      <div>Generated On: <strong>${now}</strong></div>
-      <div style="margin-top: 4px; font-weight: 700; color: #065f46;">Total Included Tasks: ${tasks.length}</div>
+      <div style="font-weight: 800; font-size: 11px; color: #7f1d1d; text-transform: uppercase; letter-spacing: 0.05em;">OFFICIAL TASK DOSSIER</div>
+      <div>Confidential Governance Record</div>
     </div>
   </div>
 
-  <div class="section">
-    <div class="section-title">${filterTypeName.toUpperCase()} PARTICULARS & DETAILS (${tasks.length})</div>
+  <!-- Document Title & Identification Metadata Box -->
+  <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start;">
+    <div>
+      <h2 style="font-size: 16px; color: #7f1d1d; margin: 0 0 4px; font-weight: 800;">${reportTitle}</h2>
+      <div style="font-size: 11px; color: #475569;">
+        Scope: <strong>${scopeName}</strong>
+        ${departmentName ? ` • Department: <strong>${departmentName}</strong>` : ''}
+        • Category: <strong>${filterTypeName}</strong>
+      </div>
+    </div>
+    <div style="text-align: right; font-size: 10px; color: #64748b; line-height: 1.4;">
+      <div>Generated By: <strong>${generatedBy?.name?.en || generatedBy?.name || 'Authorized Personnel'}</strong> (${generatedBy?.designation?.en || generatedBy?.role || 'Staff'})</div>
+      <div>Generated On: <strong>${now}</strong></div>
+      <div style="font-weight: 700; color: #065f46; margin-top: 2px;">Report Filter: ${filterTypeName.toUpperCase()}</div>
+    </div>
+  </div>
+
+  <!-- Personnel Dossier Card if Single Employee Report -->
+  ${employee ? `
+  <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Personnel Profile</div>
+      <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 1px;">
+        ${employee.name?.en || employee.name || 'Personnel'} 
+        ${employee.employeeId ? `<span style="font-size: 10px; font-family: monospace; background: #e2e8f0; padding: 1px 6px; border-radius: 4px; margin-left: 6px;">${employee.employeeId}</span>` : ''}
+      </div>
+      <div style="font-size: 10px; color: #475569; margin-top: 2px;">
+        Designation: <strong>${employee.designation?.en || employee.designation || employee.role || 'Staff'}</strong> • Department: <strong>${departmentName || 'Museum'}</strong> ${employee.email ? `• Email: ${employee.email}` : ''}
+      </div>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 10px; color: #64748b; font-weight: 600;">Personal Completion Rate</div>
+      <div style="font-size: 16px; font-weight: 900; color: #059669;">${resolutionRate}%</div>
+    </div>
+  </div>
+  ` : ''}
+
+  <!-- Executive Summary KPI Badges -->
+  <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 16px;">
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; text-align: center;">
+      <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700;">Total Tasks</div>
+      <div style="font-size: 16px; font-weight: 900; color: #0f172a; margin-top: 2px;">${totalCount}</div>
+    </div>
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px; text-align: center;">
+      <div style="font-size: 9px; text-transform: uppercase; color: #166534; font-weight: 700;">Completed</div>
+      <div style="font-size: 16px; font-weight: 900; color: #15803d; margin-top: 2px;">${completedCount}</div>
+    </div>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 8px; text-align: center;">
+      <div style="font-size: 9px; text-transform: uppercase; color: #1e40af; font-weight: 700;">Active / In-Prog</div>
+      <div style="font-size: 16px; font-weight: 900; color: #2563eb; margin-top: 2px;">${activeCount}</div>
+    </div>
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px; text-align: center;">
+      <div style="font-size: 9px; text-transform: uppercase; color: #991b1b; font-weight: 700;">Overdue</div>
+      <div style="font-size: 16px; font-weight: 900; color: #dc2626; margin-top: 2px;">${overdueCount}</div>
+    </div>
+    <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 6px; padding: 8px; text-align: center;">
+      <div style="font-size: 9px; text-transform: uppercase; color: #6b21a8; font-weight: 700;">Resolution Rate</div>
+      <div style="font-size: 16px; font-weight: 900; color: #7e22ce; margin-top: 2px;">${resolutionRate}%</div>
+    </div>
+  </div>
+
+  <!-- Task Roster Section -->
+  <div class="section" style="margin-top: 10px;">
+    <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+      <span>${filterTypeName.toUpperCase()} DIRECTIVES & PARTICULAR RECORD (${totalCount})</span>
+      <span style="font-weight: normal; color: #94a3b8; font-size: 9px;">AUTHENTICATED AUDIT DATA</span>
+    </div>
     ${tasksHtml}
   </div>
 
-  <div class="signature-row" style="margin-top: 40px;">
+  <!-- Formal Signatures & Verification Area -->
+  <div class="signature-row" style="margin-top: 36px; page-break-inside: avoid;">
     <div class="signature-box">
-      <div class="signature-name">${employee?.name?.en || employee?.name || generatedBy?.name?.en || 'Report Generator'}</div>
-      <div class="signature-role">${employee?.designation?.en || employee?.designation || employee?.role || generatedBy?.designation?.en || 'Assigned Personnel'}</div>
+      <div class="signature-name">${employee?.name?.en || employee?.name || generatedBy?.name?.en || generatedBy?.name || 'Reporting Personnel'}</div>
+      <div class="signature-role">${employee?.designation?.en || employee?.designation || employee?.role || generatedBy?.designation?.en || 'Assigned Officer / Staff'}</div>
       <div class="signature-date">Date: ${now.split(',')[0]}</div>
     </div>
     <div class="signature-box">
       <div class="signature-name">Supervisory / Directorate Verification</div>
       <div class="signature-role">Liberation War Museum Directorate</div>
-      <div class="signature-date">Official Seal / Signature</div>
+      <div class="signature-date">Official Seal & Approval Signature</div>
     </div>
   </div>
 
-  <div class="footer">
-    <span>Liberation War Museum OMS — Confidential Institutional Task Report</span>
-    <span>Generated: ${now}</span>
+  <!-- Document Security Stamp Footer -->
+  <div class="footer" style="margin-top: 24px;">
+    <span>Liberation War Museum OMS — Confidential Institutional Operational Dossier</span>
+    <span>Doc Ref: LWM-REP-${Date.now().toString().slice(-6)} • ${now}</span>
   </div>
 </body>
 </html>`;
+}
 
-  printHtml(html, `Tasks_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+/** Generate and print Tasks PDF Report (Supports Ongoing, Completed, and All Tasks) */
+export function downloadTasksPdfReport(params: {
+  reportTitle: string;
+  scopeName: string;
+  departmentName?: string;
+  filterTypeName?: string;
+  tasks: any[];
+  generatedBy: any;
+  employee?: any;
+}) {
+  const html = generateTasksReportHtml(params);
+  const now = new Date().toISOString().split('T')[0];
+  printHtml(html, `Tasks_Report_${now}.pdf`);
 }
 
 export const downloadOngoingTasksPdfReport = downloadTasksPdfReport;
