@@ -174,7 +174,7 @@ export interface TaskRequest {
     createdAt: string;
   }>;
   convertedTaskId?: string;
-  convertedTask?: { _id: string; taskId: string; title: string; status: TaskStatus } | null;
+  convertedTask?: { _id: string; taskId: string; title: string; status: TaskStatus; progress?: number; assignedTo?: string[]; assignees?: User[] } | null;
   createdAt: string;
   updatedAt: string;
 }

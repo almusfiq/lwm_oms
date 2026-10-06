@@ -8,8 +8,10 @@ import { UserAvatar } from '../components/common/UserAvatar';
 import { Modal } from '../components/common/Modal';
 import { 
   GitPullRequest, ArrowRight, CheckCircle2, XCircle, 
-  HelpCircle, Calendar, Plus, MessageSquare, Building 
+  HelpCircle, Calendar, Plus, MessageSquare, Building,
+  UserPlus, Users, Search, Check
 } from 'lucide-react';
+import { getUserRole, isDepartmentHead } from '../utils/hierarchy';
 
 interface TaskRequestsPageProps {
   onOpenCreateRequest: () => void;
@@ -28,9 +30,68 @@ export const TaskRequestsPage: React.FC<TaskRequestsPageProps> = ({
 
   // Dialog States
   const [selectedRequest, setSelectedRequest] = useState<TaskRequest | null>(null);
-  const [actionType, setActionType] = useState<'ACCEPT' | 'REJECT' | 'CLARIFY' | null>(null);
+  const [actionType, setActionType] = useState<'ACCEPT' | 'REJECT' | 'CLARIFY' | 'ASSIGN' | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const [submittingAction, setSubmittingAction] = useState(false);
+
+  // Assignment state (Dept Head assigning approved task to department staff)
+  const [deptEmployees, setDeptEmployees] = useState<any[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [acceptAssigneeId, setAcceptAssigneeId] = useState<string>('');
+  const [assignIds, setAssignIds] = useState<string[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+
+  const role = getUserRole(user);
+  const isExec = role === 'CEO' || role === 'TRUSTEE';
+  const isHead = isDepartmentHead(user);
+
+  const canManage = (req: TaskRequest) =>
+    isExec || (isHead && !!user?.departmentId && (user.departmentId === req.targetDepartmentId || (req.targetDepartment as any)?.code === user.departmentId));
+
+  const loadDeptEmployees = async (deptId: string) => {
+    setLoadingEmployees(true);
+    try {
+      const list = await api.users.list({ departmentId: deptId, activeOnly: true });
+      const arr = (Array.isArray(list) ? list : []).filter((u: any) => u.role !== 'SUPER_ADMIN' && u.roleId !== 'SUPER_ADMIN');
+      setDeptEmployees(arr);
+      return arr;
+    } catch (err) {
+      console.error(err);
+      setDeptEmployees([]);
+      return [];
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  const openAccept = async (req: TaskRequest) => {
+    setSelectedRequest(req);
+    setActionType('ACCEPT');
+    setActionMessage('Accepted. Converting into active task immediately.');
+    setAcceptAssigneeId(req.suggestedEmployeeId || user?._id || '');
+    await loadDeptEmployees(req.targetDepartmentId);
+  };
+
+  const openAssign = async (req: TaskRequest) => {
+    setSelectedRequest(req);
+    setActionType('ASSIGN');
+    setActionMessage('');
+    setEmployeeSearch('');
+    setAssignIds(req.convertedTask?.assignedTo || (req.targetEmployeeId ? [req.targetEmployeeId] : []));
+    await loadDeptEmployees(req.targetDepartmentId);
+  };
+
+  const toggleAssignId = (id: string) => {
+    setAssignIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const closeDialog = () => {
+    setActionType(null);
+    setSelectedRequest(null);
+    setActionMessage('');
+    setAssignIds([]);
+    setAcceptAssigneeId('');
+  };
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -54,8 +115,18 @@ export const TaskRequestsPage: React.FC<TaskRequestsPageProps> = ({
     setSubmittingAction(true);
     try {
       if (actionType === 'ACCEPT') {
-        const res = await api.taskRequests.accept(selectedRequest._id, actionMessage);
-        alert(`Request accepted! Task #${res.task.taskId} has been created and assigned.`);
+        const res = await api.taskRequests.accept(selectedRequest._id, {
+          responseMessage: actionMessage,
+          assignedToId: acceptAssigneeId || undefined
+        });
+        alert(`Request approved! Task #${res.task.taskId} has been created and assigned. You can reassign it anytime using "Assign to Team Member".`);
+      } else if (actionType === 'ASSIGN') {
+        if (assignIds.length === 0) {
+          alert('Select at least one employee to assign.');
+          setSubmittingAction(false);
+          return;
+        }
+        await api.taskRequests.assign(selectedRequest._id, assignIds, actionMessage.trim() || undefined);
       } else if (actionType === 'REJECT') {
         if (!actionMessage.trim()) {
           alert('Please state the reason for declining this request.');
@@ -72,9 +143,7 @@ export const TaskRequestsPage: React.FC<TaskRequestsPageProps> = ({
         await api.taskRequests.clarify(selectedRequest._id, actionMessage);
       }
 
-      setActionType(null);
-      setSelectedRequest(null);
-      setActionMessage('');
+      closeDialog();
       await fetchRequests();
       await refreshMe();
     } catch (err: any) {
@@ -231,18 +300,44 @@ export const TaskRequestsPage: React.FC<TaskRequestsPageProps> = ({
                   </div>
                 )}
 
-                {/* Converted Task Link */}
+                {/* Converted Task Link + Assignment */}
                 {req.convertedTaskId && (
-                  <div className="flex items-center gap-2 text-xs">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="text-slate-600 dark:text-slate-400">Converted into active task:</span>
-                    <button
-                      type="button"
-                      onClick={() => onOpenTaskDetail(req.convertedTaskId!)}
-                      className="font-bold text-red-700 dark:text-red-400 hover:underline"
-                    >
-                      View Converted Task →
-                    </button>
+                  <div className="p-3 rounded-xl border border-emerald-200/70 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span className="text-slate-600 dark:text-slate-400">Approved & converted into task</span>
+                        <button
+                          type="button"
+                          onClick={() => onOpenTaskDetail(req.convertedTaskId!)}
+                          className="font-bold text-red-700 dark:text-red-400 hover:underline"
+                        >
+                          {req.convertedTask?.taskId || 'View Task'} →
+                        </button>
+                      </div>
+                      {req.convertedTask?.assignees && req.convertedTask.assignees.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="text-slate-500">Assigned to:</span>
+                          {req.convertedTask.assignees.map((a: any) => (
+                            <span key={a._id} className="px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-200">
+                              {a.name?.en || a.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {isIncoming && canManage(req) && req.convertedTask?.status !== 'COMPLETED' && (
+                      <button
+                        type="button"
+                        onClick={() => openAssign(req)}
+                        className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white shadow-xs flex items-center gap-1.5 transition-colors shrink-0"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Assign to Team Member</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -251,15 +346,11 @@ export const TaskRequestsPage: React.FC<TaskRequestsPageProps> = ({
                   <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedRequest(req);
-                        setActionType('ACCEPT');
-                        setActionMessage('Accepted. Converting into active task immediately.');
-                      }}
+                      onClick={() => openAccept(req)}
                       className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs flex items-center gap-1.5 transition-colors"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Accept & Create Task</span>
+                      <span>Approve & Create Task</span>
                     </button>
 
                     <button
@@ -300,26 +391,119 @@ export const TaskRequestsPage: React.FC<TaskRequestsPageProps> = ({
       {actionType && selectedRequest && (
         <Modal
           isOpen={Boolean(actionType)}
-          onClose={() => setActionType(null)}
+          onClose={closeDialog}
           title={
-            actionType === 'ACCEPT' ? 'Accept Request & Create Task' :
+            actionType === 'ACCEPT' ? 'Approve Request & Create Task' :
+            actionType === 'ASSIGN' ? 'Assign Task to Team Member' :
             actionType === 'REJECT' ? 'Decline Request' : 'Ask for Clarification'
           }
           subtitle={`Directive: ${selectedRequest.title}`}
           maxWidth="md"
         >
           <div className="space-y-4">
+            {/* Accept: optional assignee picker */}
+            {actionType === 'ACCEPT' && canManage(selectedRequest) && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Assign To (optional)
+                </label>
+                <select
+                  value={acceptAssigneeId}
+                  onChange={e => setAcceptAssigneeId(e.target.value)}
+                  disabled={loadingEmployees}
+                  className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                >
+                  <option value={user?._id || ''}>Keep with me ({user?.name?.en})</option>
+                  {deptEmployees.filter(e => e._id !== user?._id).map(emp => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name?.en} — {emp.designation?.en || emp.role}
+                      {emp._id === selectedRequest.suggestedEmployeeId ? ' (suggested by requester)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  You can change or add more assignees later with “Assign to Team Member”.
+                </p>
+              </div>
+            )}
+
+            {/* Assign: multi-select department staff */}
+            {actionType === 'ASSIGN' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Select Employees ({selectedRequest.targetDepartment?.code || 'Department'}) *
+                </label>
+                <div className="relative mb-2">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={employeeSearch}
+                    onChange={e => setEmployeeSearch(e.target.value)}
+                    placeholder="Search by name or designation..."
+                    className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl divide-y divide-slate-100 dark:divide-slate-800">
+                  {loadingEmployees ? (
+                    <div className="p-4 text-center text-xs text-slate-400">Loading department staff...</div>
+                  ) : deptEmployees.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">No employees found in this department.</div>
+                  ) : (
+                    deptEmployees
+                      .filter(emp => {
+                        const q = employeeSearch.trim().toLowerCase();
+                        if (!q) return true;
+                        return (emp.name?.en || '').toLowerCase().includes(q) || (emp.designation?.en || '').toLowerCase().includes(q);
+                      })
+                      .map(emp => {
+                        const checked = assignIds.includes(emp._id);
+                        return (
+                          <button
+                            key={emp._id}
+                            type="button"
+                            onClick={() => toggleAssignId(emp._id)}
+                            className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-left transition-colors ${
+                              checked ? 'bg-red-50 dark:bg-red-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <UserAvatar name={emp.name} role={emp.role} size="sm" />
+                              <div>
+                                <div className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                  {emp.name?.en}{emp._id === user?._id ? ' (You)' : ''}
+                                </div>
+                                <div className="text-[11px] text-slate-500">{emp.designation?.en || emp.role}</div>
+                              </div>
+                            </div>
+                            <span className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${
+                              checked ? 'bg-red-700 border-red-700 text-white' : 'border-slate-300 dark:border-slate-600'
+                            }`}>
+                              {checked && <Check className="w-3.5 h-3.5" />}
+                            </span>
+                          </button>
+                        );
+                      })
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  {assignIds.length} selected • New assignees are notified. You and the requester stay on the task as collaborators.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {actionType === 'ACCEPT' ? 'Acceptance Note' :
+                {actionType === 'ACCEPT' ? 'Approval Note' :
+                 actionType === 'ASSIGN' ? 'Instruction for Assignee (optional)' :
                  actionType === 'REJECT' ? 'State Reason for Declining *' : 'Inquiry / Question to Requester *'}
               </label>
               <textarea
-                rows={4}
+                rows={actionType === 'ASSIGN' ? 3 : 4}
                 value={actionMessage}
                 onChange={e => setActionMessage(e.target.value)}
                 placeholder={
                   actionType === 'ACCEPT' ? 'e.g., Accepting into our department schedule for delivery this week.' :
+                  actionType === 'ASSIGN' ? 'e.g., Please coordinate with the requester and deliver by the deadline.' :
                   actionType === 'REJECT' ? 'e.g., Currently prioritizing exhibition catalog deadlines. Can reschedule after the 25th.' :
                   'e.g., What resolution and dpi are required for this print format?'
                 }
@@ -330,7 +514,7 @@ export const TaskRequestsPage: React.FC<TaskRequestsPageProps> = ({
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => setActionType(null)}
+                onClick={closeDialog}
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 Cancel
@@ -338,13 +522,14 @@ export const TaskRequestsPage: React.FC<TaskRequestsPageProps> = ({
               <button
                 type="button"
                 onClick={handleExecuteAction}
-                disabled={submittingAction}
-                className={`px-5 py-2 rounded-xl text-xs font-semibold text-white shadow-xs transition-colors ${
+                disabled={submittingAction || (actionType === 'ASSIGN' && assignIds.length === 0)}
+                className={`px-5 py-2 rounded-xl text-xs font-semibold text-white shadow-xs transition-colors disabled:opacity-50 ${
                   actionType === 'ACCEPT' ? 'bg-emerald-700 hover:bg-emerald-800' :
+                  actionType === 'ASSIGN' ? 'bg-red-800 hover:bg-red-900' :
                   actionType === 'REJECT' ? 'bg-rose-700 hover:bg-rose-800' : 'bg-blue-700 hover:bg-blue-800'
                 }`}
               >
-                {submittingAction ? 'Processing...' : 'Confirm Action'}
+                {submittingAction ? 'Processing...' : actionType === 'ASSIGN' ? 'Assign Task' : actionType === 'ACCEPT' ? 'Approve' : 'Confirm Action'}
               </button>
             </div>
           </div>

@@ -5,6 +5,25 @@ import { TaskRequest, Task } from '../types';
 
 export const taskRequestRoutes = Router();
 
+// Can the current user manage (approve / assign) a request targeting a department?
+function canManageTargetDept(user: any, request: TaskRequest): boolean {
+  const role = getEffectiveRole(user);
+  if (role === 'CEO' || role === 'TRUSTEE') return true;
+  if (role === 'DEPT_HEAD' || role === 'DEPARTMENT_HEAD') {
+    const userDeptId = resolveDepartmentId(user.departmentId, db.departments) || user.departmentId;
+    return userDeptId === request.targetDepartmentId;
+  }
+  return false;
+}
+
+// Is the given user an assignable, active, non-super-admin member of the department?
+function isAssignableInDept(userId: string, deptId: string): boolean {
+  const u = db.users.find(x => x._id === userId);
+  if (!u || !u.isActive || getEffectiveRole(u) === 'SUPER_ADMIN') return false;
+  const uDept = resolveDepartmentId(u.departmentId, db.departments) || u.departmentId;
+  return uDept === deptId;
+}
+
 function populateRequest(r: TaskRequest) {
   const requester = db.users.find(u => u._id === r.requesterId);
   const targetEmployee = db.users.find(u => u._id === r.targetEmployeeId);
@@ -208,6 +227,12 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
   }
 
   const { responseMessage, assignedToId } = req.body;
+
+  if (assignedToId && assignedToId !== req.user!._id && !isAssignableInDept(assignedToId, request.targetDepartmentId)) {
+    res.status(400).json({ success: false, message: 'The selected assignee must be an active employee of the target department.' });
+    return;
+  }
+
   const finalAssigneeId = assignedToId || request.suggestedEmployeeId || request.targetEmployeeId;
   const assignedUser = db.users.find(u => u._id === finalAssigneeId && u.isActive);
   const actualAssigneeId = assignedUser ? assignedUser._id : request.targetEmployeeId;
@@ -296,6 +321,100 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
       task: newTask
     }
   });
+});
+
+// POST /api/task-requests/:id/assign (Dept Head assigns/reassigns the approved task to dept employees)
+taskRequestRoutes.post('/:id/assign', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  const request = db.taskRequests.find(r => r._id === req.params.id || r.requestId === req.params.id);
+  if (!request) {
+    res.status(404).json({ success: false, message: 'Request not found' });
+    return;
+  }
+
+  if (!canManageTargetDept(req.user, request)) {
+    res.status(403).json({ success: false, message: 'Only the Department Head of the target department can assign this task.' });
+    return;
+  }
+
+  if (request.status !== 'CONVERTED_TO_TASK' || !request.convertedTaskId) {
+    res.status(400).json({ success: false, message: 'This request must be approved before it can be assigned.' });
+    return;
+  }
+
+  const task = db.tasks.find(t => t._id === request.convertedTaskId);
+  if (!task) {
+    res.status(404).json({ success: false, message: 'Converted task not found' });
+    return;
+  }
+
+  const { assigneeIds, note } = req.body as { assigneeIds?: string[]; note?: string };
+  const ids = Array.from(new Set((assigneeIds || []).filter(Boolean)));
+  if (ids.length === 0) {
+    res.status(400).json({ success: false, message: 'Select at least one employee to assign.' });
+    return;
+  }
+
+  const invalid = ids.filter(id => id !== req.user!._id && !isAssignableInDept(id, request.targetDepartmentId));
+  if (invalid.length > 0) {
+    res.status(400).json({ success: false, message: 'All assignees must be active employees of your department.' });
+    return;
+  }
+
+  const previous = [...task.assignedTo];
+  const newlyAdded = ids.filter(id => !previous.includes(id));
+
+  task.assignedTo = ids;
+  // Keep the Dept Head and requester in the loop as collaborators
+  const collabs = new Set([...(task.collaborators || []), req.user!._id, request.requesterId]);
+  ids.forEach(id => collabs.delete(id));
+  task.collaborators = Array.from(collabs);
+  task.updatedAt = new Date().toISOString();
+
+  request.targetEmployeeId = ids[0];
+  request.updatedAt = new Date().toISOString();
+
+  const names = ids.map(id => db.users.find(u => u._id === id)?.name.en).filter(Boolean).join(', ');
+
+  db.activityLogs.unshift({
+    _id: db.generateId('act'),
+    actorId: req.user!._id,
+    action: 'TASK_REQUEST_ASSIGNED',
+    module: 'TASKS',
+    description: `Assigned cross-dept task ${task.taskId} to ${names}`,
+    resourceType: 'TASK',
+    resourceId: task._id,
+    metadata: { taskId: task.taskId, requestId: request.requestId, from: previous, to: ids, note },
+    createdAt: new Date().toISOString()
+  });
+
+  newlyAdded.filter(id => id !== req.user!._id).forEach(id => {
+    db.notifications.unshift({
+      _id: db.generateId('notif'),
+      recipientId: id,
+      type: 'TASK_ASSIGNED',
+      title: `Task Assigned by Department Head: ${task.taskId}`,
+      message: `${req.user?.name.en} assigned you to cross-department task "${task.title}".${note ? ` Note: ${note}` : ''}`,
+      resourceType: 'TASK',
+      resourceId: task._id,
+      isRead: false,
+      createdAt: new Date().toISOString()
+    });
+  });
+
+  db.notifications.unshift({
+    _id: db.generateId('notif'),
+    recipientId: request.requesterId,
+    type: 'TASK_ASSIGNED',
+    title: `Request ${request.requestId} assigned`,
+    message: `${req.user?.name.en} assigned your request "${task.title}" to ${names}.`,
+    resourceType: 'TASK',
+    resourceId: task._id,
+    isRead: false,
+    createdAt: new Date().toISOString()
+  });
+
+  db.save();
+  res.json({ success: true, data: populateRequest(request) });
 });
 
 // POST /api/task-requests/:id/reject

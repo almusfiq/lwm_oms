@@ -224,6 +224,14 @@ export const api = {
         body: JSON.stringify({ message })
       });
       return handleResponse<any>(res);
+    },
+    assign: async (id: string, assigneeIds: string[], note?: string) => {
+      const res = await fetch(`${API_BASE}/task-requests/${id}/assign`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        body: JSON.stringify({ assigneeIds, note })
+      });
+      return handleResponse<any>(res);
     }
   },
 
