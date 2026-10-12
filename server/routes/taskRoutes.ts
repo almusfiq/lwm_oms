@@ -47,6 +47,20 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const now = new Date().toISOString().split('T')[0];
   let filtered = db.tasks.filter(t => !t.isDeleted && !(t as any).deleted);
 
+  const isUserAssigned = (arr: any, uid: string) => {
+    if (!Array.isArray(arr)) return false;
+    const lowerUid = String(uid).toLowerCase();
+    return arr.some((item: any) => {
+      if (!item) return false;
+      if (typeof item === 'string') return item.toLowerCase() === lowerUid;
+      if (typeof item === 'object') {
+        const id = item._id || item.id;
+        return id && String(id).toLowerCase() === lowerUid;
+      }
+      return false;
+    });
+  };
+
   // 1. Role-based baseline visibility filtering:
   // - Trustee & CEO: Can see all tasks across the museum.
   // - Dept Head: Can ONLY see tasks affiliated with their department (departmentId, targetDepartmentId, sourceDepartmentId).
@@ -58,14 +72,14 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
     const isCEO = role === 'CEO';
     const isDeptHead = role === 'DEPT_HEAD';
     const userDeptId = req.user.departmentId;
+    const uid = req.user._id;
 
     if (myTasks === 'true') {
-      const uid = req.user._id;
       filtered = filtered.filter(t => 
-        t.assignedTo.includes(uid) || 
+        isUserAssigned(t.assignedTo, uid) || 
         t.requestedBy === uid || 
         t.createdBy === uid || 
-        t.collaborators.includes(uid)
+        isUserAssigned(t.collaborators, uid)
       );
     } else if (!isSuperAdmin && !isTrustee && !isCEO) {
       if (isDeptHead && userDeptId) {
@@ -74,18 +88,17 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
           t.departmentId === resolvedDeptId || 
           t.targetDepartmentId === resolvedDeptId || 
           t.sourceDepartmentId === resolvedDeptId ||
-          t.assignedTo.includes(req.user!._id) ||
-          t.createdBy === req.user!._id ||
-          t.requestedBy === req.user!._id ||
-          t.collaborators.includes(req.user!._id)
+          isUserAssigned(t.assignedTo, uid) ||
+          t.createdBy === uid ||
+          t.requestedBy === uid ||
+          isUserAssigned(t.collaborators, uid)
         );
       } else {
-        const uid = req.user._id;
         filtered = filtered.filter(t => 
-          t.assignedTo.includes(uid) || 
+          isUserAssigned(t.assignedTo, uid) || 
           t.requestedBy === uid || 
           t.createdBy === uid || 
-          t.collaborators.includes(uid)
+          isUserAssigned(t.collaborators, uid)
         );
       }
     }
@@ -131,7 +144,7 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
 
   // 6. Assignee & Requester
   if (assignee && typeof assignee === 'string') {
-    filtered = filtered.filter(t => t.assignedTo.includes(assignee));
+    filtered = filtered.filter(t => isUserAssigned(t.assignedTo, assignee));
   }
   if (requester && typeof requester === 'string') {
     filtered = filtered.filter(t => t.requestedBy === requester || t.createdBy === requester);
@@ -182,7 +195,14 @@ taskRoutes.get('/', requireAuth, (req: AuthenticatedRequest, res: Response) => {
 
 // GET /api/tasks/:id (Full task detail with comments, checklist, and activity logs)
 taskRoutes.get('/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
-  const task = db.tasks.find(t => t._id === req.params.id || t.taskId === req.params.id);
+  const paramId = (req.params.id || '').trim();
+  const task = db.tasks.find(t => 
+    t._id === paramId || 
+    String(t._id) === paramId ||
+    t.taskId === paramId || 
+    (t.taskId && t.taskId.toUpperCase() === paramId.toUpperCase()) ||
+    t.relatedRequestId === paramId
+  );
   if (!task) {
     res.status(404).json({ success: false, message: 'Task not found' });
     return;
@@ -533,6 +553,17 @@ taskRoutes.post('/:id/review', requireAuth, (req: AuthenticatedRequest, res: Res
   const user = req.user!;
   const userRole = user.role;
 
+  // The assigned person who submitted the task cannot approve/review their own work
+  const isAssignee = (Array.isArray(task.assignedTo) && task.assignedTo.includes(user._id)) ||
+                     (Array.isArray(task.collaborators) && task.collaborators.includes(user._id));
+  if (isAssignee && task.createdBy !== user._id && !['CEO', 'SUPER_ADMIN'].includes(userRole)) {
+    res.status(403).json({
+      success: false,
+      message: 'Assigned personnel cannot review or approve their own submitted tasks. Only the assigner can make review decisions.'
+    });
+    return;
+  }
+
   if (action === 'APPROVE') {
     task.status = 'COMPLETED';
     task.progress = 100;
@@ -776,7 +807,7 @@ taskRoutes.post('/:id/review', requireAuth, (req: AuthenticatedRequest, res: Res
   res.json({ success: true, data: populateTask(task) });
 });
 
-// PATCH /api/tasks/:id/progress (Update progress percent 0 - 100)
+// PATCH /api/tasks/:id/progress (Update progress percent 0 - 100 with optional note/feedback & status)
 taskRoutes.patch('/:id/progress', requireAuth, (req: AuthenticatedRequest, res: Response) => {
   const task = db.tasks.find(t => t._id === req.params.id || t.taskId === req.params.id);
   if (!task) {
@@ -784,16 +815,74 @@ taskRoutes.patch('/:id/progress', requireAuth, (req: AuthenticatedRequest, res: 
     return;
   }
 
-  const { progress } = req.body;
-  const num = Math.min(100, Math.max(0, parseInt(progress, 10)));
+  const { progress, note, status } = req.body;
+  const num = progress !== undefined ? Math.min(100, Math.max(0, parseInt(progress, 10))) : task.progress;
   const oldProgress = task.progress;
   task.progress = num;
-  task.updatedAt = new Date().toISOString();
+
+  if (status && ['TODO', 'ACCEPTED', 'IN_PROGRESS', 'ON_HOLD', 'IN_REVIEW'].includes(status)) {
+    task.status = status;
+  }
 
   if (num === 100 && task.status !== 'COMPLETED') {
     task.status = task.requiresApproval ? 'IN_REVIEW' : 'COMPLETED';
     if (task.status === 'COMPLETED') {
       task.completedAt = new Date().toISOString();
+    }
+  }
+
+  task.updatedAt = new Date().toISOString();
+
+  // If a note/feedback was provided, record it as a structured task comment
+  if (note && typeof note === 'string' && note.trim()) {
+    const isAssignee = (Array.isArray(task.assignedTo) && task.assignedTo.includes(req.user!._id)) ||
+                       (Array.isArray(task.collaborators) && task.collaborators.includes(req.user!._id));
+    const tag = isAssignee ? '👷 WORK PROGRESS UPDATE' : '💬 ASSIGNER FEEDBACK';
+    const commentContent = `📊 **${tag}** (${num}%)\n\n${note.trim()}`;
+
+    db.comments.push({
+      _id: db.generateId('cmt'),
+      taskId: task._id,
+      userId: req.user!._id,
+      content: commentContent,
+      mentions: [],
+      attachments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    // Notify the counterpart
+    if (isAssignee) {
+      const recipient = task.requestedBy || task.createdBy;
+      if (recipient && recipient !== req.user?._id) {
+        db.notifications.unshift({
+          _id: db.generateId('notif'),
+          recipientId: recipient,
+          type: 'STATUS_CHANGED',
+          title: `📈 Progress Update: ${task.taskId}`,
+          message: `${req.user?.name.en} updated progress to ${num}%: "${note.trim().slice(0, 75)}${note.length > 75 ? '...' : ''}"`,
+          resourceType: 'TASK',
+          resourceId: task._id,
+          isRead: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } else {
+      task.assignedTo.forEach(assigneeId => {
+        if (assigneeId !== req.user?._id) {
+          db.notifications.unshift({
+            _id: db.generateId('notif'),
+            recipientId: assigneeId,
+            type: 'STATUS_CHANGED',
+            title: `💬 Feedback on Task: ${task.taskId}`,
+            message: `${req.user?.name.en} posted feedback on "${task.title}": "${note.trim().slice(0, 75)}${note.length > 75 ? '...' : ''}"`,
+            resourceType: 'TASK',
+            resourceId: task._id,
+            isRead: false,
+            createdAt: new Date().toISOString()
+          });
+        }
+      });
     }
   }
 
@@ -803,7 +892,7 @@ taskRoutes.patch('/:id/progress', requireAuth, (req: AuthenticatedRequest, res: 
     action: 'TASK_PROGRESS_UPDATED',
     resourceType: 'TASK',
     resourceId: task._id,
-    metadata: { oldProgress, newProgress: num },
+    metadata: { oldProgress, newProgress: num, status: task.status, note: note ? note.trim() : undefined },
     createdAt: new Date().toISOString()
   });
 

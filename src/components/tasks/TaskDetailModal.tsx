@@ -8,7 +8,7 @@ import { UserAvatar } from '../common/UserAvatar';
 import { 
   X, Check, Plus, Paperclip, Send, Clock, Calendar, 
   Building, Copy, CheckCircle2, ChevronRight, FileText, ArrowRight, ShieldCheck, Trash2, Download, Printer,
-  RotateCcw, XCircle, ArrowUpRight, Sparkles
+  RotateCcw, XCircle, ArrowUpRight, Sparkles, TrendingUp, MessageSquare
 } from 'lucide-react';
 import { SubmitWorkModal } from './SubmitWorkModal';
 import { downloadTaskPdf } from '../../utils/pdfGenerator';
@@ -49,6 +49,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [reviewNote, setReviewNote] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
+  // Progress & Work Feedback Update State
+  const [feedbackProgress, setFeedbackProgress] = useState<number>(0);
+  const [feedbackStatus, setFeedbackStatus] = useState<string>('');
+  const [feedbackText, setFeedbackText] = useState<string>('');
+  const [isUpdatingFeedback, setIsUpdatingFeedback] = useState<boolean>(false);
+  const [showFeedbackForm, setShowFeedbackForm] = useState<boolean>(false);
+
   // For CEO referral: let CEO pick which trustee to refer to
   const [trustees, setTrustees] = useState<User[]>([]);
   const [selectedTrusteeId, setSelectedTrusteeId] = useState('');
@@ -64,13 +71,38 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     user?._id && task &&
     Array.isArray(task?.collaborators) && task.collaborators.includes(user._id)
   );
+
+  // Crucial fix: The person who was assigned the work and submits it CANNOT review/approve/modify/refer their own work!
+  // Only the person who assigned the task (or their upper hierarchy / dept head / CEO) can review and approve it.
+  const canReviewTask = Boolean(
+    user?._id && task &&
+    task.status === 'IN_REVIEW' &&
+    !isAssignee &&
+    (
+      task.createdBy === user._id ||
+      task.requestedBy === user._id ||
+      user.role === 'CEO' ||
+      user.role === 'SUPER_ADMIN' ||
+      (user.role === 'DEPT_HEAD' && (
+        task.createdBy === user._id ||
+        task.requestedBy === user._id ||
+        (task.sourceDepartmentId && user.departmentId === task.sourceDepartmentId) ||
+        (task.departmentId && user.departmentId === task.departmentId)
+      ))
+    )
+  );
+
   const isAssigner = Boolean(
-    user?._id && (
-      task?.createdBy === user._id ||
-      task?.requestedBy === user._id ||
-      user?.role === 'DEPT_HEAD' ||
-      user?.role === 'CEO' ||
-      user?.role === 'SUPER_ADMIN'
+    user?._id && task && (
+      task.createdBy === user._id ||
+      task.requestedBy === user._id ||
+      user.role === 'CEO' ||
+      user.role === 'SUPER_ADMIN' ||
+      (user.role === 'DEPT_HEAD' && (
+        task.createdBy === user._id ||
+        task.requestedBy === user._id ||
+        user.departmentId === (task.sourceDepartmentId || task.departmentId)
+      ))
     )
   );
 
@@ -170,10 +202,42 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setTask(res.task);
       setComments(res.comments || []);
       setActivities(res.activities || []);
+      if (res.task) {
+        setFeedbackProgress(res.task.progress || 0);
+        setFeedbackStatus(res.task.status || 'IN_PROGRESS');
+      }
     } catch (err) {
       console.error('Failed to load task details:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveProgressFeedback = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!task) return;
+
+    if (!feedbackText.trim() && feedbackProgress === task.progress && (!feedbackStatus || feedbackStatus === task.status)) {
+      alert('Please enter a work update note, change the progress slider, or choose a status.');
+      return;
+    }
+
+    setIsUpdatingFeedback(true);
+    try {
+      await api.tasks.updateProgress(
+        task._id,
+        feedbackProgress,
+        feedbackText.trim() || undefined,
+        feedbackStatus || undefined
+      );
+      setFeedbackText('');
+      setShowFeedbackForm(false);
+      onTaskUpdated?.();
+      await fetchTaskDetails();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update progress and feedback.');
+    } finally {
+      setIsUpdatingFeedback(false);
     }
   };
 
@@ -379,7 +443,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </div>
 
             {/* Assigner Decision & Review Action Bar */}
-            {isAssigner && task.status === 'IN_REVIEW' && (
+            {canReviewTask && (
               <div className="mx-6 my-3 p-4 bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-amber-500/10 dark:from-emerald-950/40 dark:to-purple-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
                 <div>
                   <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
@@ -445,6 +509,26 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
             )}
 
+            {/* In-Review Status Notification for Assignee — Shows when assignee has submitted work and is waiting for review */}
+            {isAssignee && task.status === 'IN_REVIEW' && (
+              <div className="mx-6 my-3 p-3.5 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-blue-950 dark:text-blue-100">
+                      Work Submitted — Waiting for Assigner Decision
+                    </div>
+                    <div className="text-[11px] text-blue-700 dark:text-blue-300">
+                      Your deliverables have been submitted. The assigner ({task.creator?.name?.en || task.requester?.name?.en || 'task assigner'}) will review your work to approve, request modifications, or refer.
+                    </div>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 text-[11px] font-semibold bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 rounded-lg shrink-0">
+                  Pending Decision
+                </span>
+              </div>
+            )}
+
             {/* Quick Status & Progress Action Bar */}
             <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/40 border-y border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
               {/* Status Selector */}
@@ -459,10 +543,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <option value="ACCEPTED">ACCEPTED</option>
                   <option value="IN_PROGRESS">IN PROGRESS</option>
                   <option value="ON_HOLD">ON HOLD</option>
-                  <option value="IN_REVIEW">IN REVIEW</option>
-                  <option value="COMPLETED">COMPLETED</option>
-                  <option value="REJECTED">REJECTED</option>
-                  <option value="CANCELLED">CANCELLED</option>
+                  {(!isAssignee || canReviewTask) && (
+                    <>
+                      <option value="IN_REVIEW">IN REVIEW</option>
+                      <option value="COMPLETED">COMPLETED</option>
+                      <option value="REJECTED">REJECTED</option>
+                      <option value="CANCELLED">CANCELLED</option>
+                    </>
+                  )}
+                  {isAssignee && !canReviewTask && task.status === 'IN_REVIEW' && (
+                    <option value="IN_REVIEW">IN REVIEW</option>
+                  )}
+                  {isAssignee && !canReviewTask && task.status === 'COMPLETED' && (
+                    <option value="COMPLETED">COMPLETED</option>
+                  )}
                 </select>
               </div>
 
@@ -569,6 +663,261 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       </h3>
                       <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                         {task.description || 'No detailed instructions provided.'}
+                      </div>
+                    </div>
+
+                    {/* Task Progress Tracking & Work Feedback Feed */}
+                    <div className="bg-slate-50/90 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 space-y-4 shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-200/60 dark:border-slate-700/50">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 flex items-center justify-center shrink-0">
+                            <TrendingUp className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                              <span>Work Progress & Feedback</span>
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                                {task.progress}%
+                              </span>
+                            </h3>
+                            <p className="text-[11px] text-slate-500">
+                              Real-time work updates, milestone tracking, and assigner feedback.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Post Update Toggle Button — accessible to both assigner and assigned person */}
+                        {(isAssignee || isAssigner || user?.role === 'SUPER_ADMIN' || user?.role === 'CEO') && task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
+                          <button
+                            type="button"
+                            onClick={() => setShowFeedbackForm(prev => !prev)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white transition-colors flex items-center gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>{showFeedbackForm ? 'Close Form' : isAssignee ? '+ Log Work Progress' : '+ Post Feedback / Update'}</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Visual Completion Progress Bar */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">Current Progress</span>
+                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{task.progress}% Completed</span>
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-red-600 via-amber-500 to-emerald-500"
+                            style={{ width: `${Math.max(4, task.progress)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Interactive Progress & Feedback Update Form */}
+                      {showFeedbackForm && (
+                        <form onSubmit={handleSaveProgressFeedback} className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-xs animate-in fade-in">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-red-600" />
+                              {isAssignee ? 'Update Your Work Progress' : 'Post Assigner Feedback & Directive'}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Updating as <strong className="text-slate-700 dark:text-slate-300">{user?.name.en}</strong>
+                            </span>
+                          </div>
+
+                          {/* Progress Level Controls */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                Progress Level: <span className="font-mono font-bold text-red-700 dark:text-red-400">{feedbackProgress}%</span>
+                              </label>
+                              <div className="flex gap-1">
+                                {[0, 25, 50, 75, 100].map(val => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setFeedbackProgress(val)}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
+                                      feedbackProgress === val
+                                        ? 'bg-red-800 text-white'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                                    }`}
+                                  >
+                                    {val}%
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="5"
+                              value={feedbackProgress}
+                              onChange={e => setFeedbackProgress(Number(e.target.value))}
+                              className="w-full accent-red-700 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer"
+                            />
+                          </div>
+
+                          {/* Status Transition (Optional) */}
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
+                              Update Status:
+                            </label>
+                            <select
+                              value={feedbackStatus}
+                              onChange={e => setFeedbackStatus(e.target.value)}
+                              className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+                            >
+                              <option value="">Keep Current ({task.status})</option>
+                              <option value="ACCEPTED">ACCEPTED</option>
+                              <option value="IN_PROGRESS">IN PROGRESS</option>
+                              <option value="ON_HOLD">ON HOLD</option>
+                              {(!isAssignee || canReviewTask) && <option value="IN_REVIEW">IN REVIEW</option>}
+                            </select>
+                          </div>
+
+                          {/* Work description / feedback textarea */}
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                              {isAssignee ? 'Work Done & Progress Milestone Notes' : 'Feedback & Instructions for Assignee'}
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={feedbackText}
+                              onChange={e => setFeedbackText(e.target.value)}
+                              placeholder={
+                                isAssignee
+                                  ? "e.g., Finished digitizing batch 1 (60 documents). Encountered 3 damaged pages and recorded them in the conservation registry. Next: batch 2..."
+                                  : "e.g., Great pace on digitizing batch 1. Please ensure high-resolution TIFF format is kept for photographs before moving to batch 2..."
+                              }
+                              className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 text-slate-900 dark:text-slate-100 placeholder-slate-400"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setShowFeedbackForm(false)}
+                              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={isUpdatingFeedback}
+                              className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-red-800 hover:bg-red-900 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                            >
+                              {isUpdatingFeedback ? (
+                                <span>Saving...</span>
+                              ) : (
+                                <>
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Save Progress & Feedback</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+
+                      {/* Progress Updates & Feedback Stream */}
+                      <div className="space-y-3 pt-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                            Work Logs & Feedback Timeline
+                          </h4>
+                          <span className="text-[11px] text-slate-400">
+                            {comments.filter(c => c.content.includes('WORK PROGRESS UPDATE') || c.content.includes('ASSIGNER FEEDBACK') || c.content.includes('WORK SUBMISSION') || c.content.includes('RE-WORK') || c.content.includes('WORK APPROVED')).length} updates logged
+                          </span>
+                        </div>
+
+                        {comments.filter(c => 
+                          c.content.includes('WORK PROGRESS UPDATE') || 
+                          c.content.includes('ASSIGNER FEEDBACK') || 
+                          c.content.includes('WORK SUBMISSION') || 
+                          c.content.includes('RE-WORK') || 
+                          c.content.includes('WORK APPROVED')
+                        ).length === 0 ? (
+                          <div className="p-4 text-center text-xs text-slate-400 bg-white/70 dark:bg-slate-900/40 rounded-xl border border-slate-200/50 dark:border-slate-800">
+                            No progress updates or feedback logged yet. Click &quot;Log Work Progress&quot; or &quot;Post Feedback / Update&quot; to log task progress.
+                          </div>
+                        ) : (
+                          <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                            {comments
+                              .filter(c => 
+                                c.content.includes('WORK PROGRESS UPDATE') || 
+                                c.content.includes('ASSIGNER FEEDBACK') || 
+                                c.content.includes('WORK SUBMISSION') || 
+                                c.content.includes('RE-WORK') || 
+                                c.content.includes('WORK APPROVED')
+                              )
+                              .slice()
+                              .reverse()
+                              .map(c => {
+                                const isWorkerUpdate = c.content.includes('WORK PROGRESS UPDATE');
+                                const isFeedback = c.content.includes('ASSIGNER FEEDBACK');
+                                const isSubmission = c.content.includes('WORK SUBMISSION');
+                                const isRework = c.content.includes('RE-WORK');
+
+                                return (
+                                  <div
+                                    key={c._id}
+                                    className={`p-3 rounded-xl border text-xs transition-colors ${
+                                      isWorkerUpdate
+                                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/40'
+                                        : isFeedback
+                                          ? 'bg-purple-50/50 dark:bg-purple-950/20 border-purple-200/60 dark:border-purple-900/40'
+                                          : isSubmission
+                                            ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-900/40'
+                                            : isRework
+                                              ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40'
+                                              : 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <UserAvatar name={c.author?.name || 'User'} role={c.author?.role} size="sm" />
+                                        <div className="min-w-0">
+                                          <span className="font-bold text-slate-900 dark:text-slate-100 truncate block">
+                                            {c.author?.name?.en || 'Colleague'}
+                                          </span>
+                                          <span className="text-[10px] text-slate-500 truncate block">
+                                            {c.author?.designation?.en}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                          isWorkerUpdate
+                                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                                            : isFeedback
+                                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300'
+                                              : isSubmission
+                                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
+                                                : isRework
+                                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
+                                                  : 'bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-200'
+                                        }`}>
+                                          {isWorkerUpdate ? '👷 Progress Update' : isFeedback ? '💬 Assigner Feedback' : isSubmission ? '📋 Deliverables' : isRework ? '⚠️ Modification' : '✅ Approved'}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                                          <Clock className="w-3 h-3" />
+                                          {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-slate-700 dark:text-slate-300 text-xs pl-8 whitespace-pre-line leading-relaxed">
+                                      {c.content.replace(/^.*?(\n\n|$)/s, '') || c.content}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
                       </div>
                     </div>
 

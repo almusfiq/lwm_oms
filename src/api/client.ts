@@ -93,11 +93,11 @@ export const api = {
       });
       return handleResponse<any>(res);
     },
-    updateProgress: async (id: string, progress: number) => {
+    updateProgress: async (id: string, progress: number, note?: string, status?: string) => {
       const res = await fetch(`${API_BASE}/tasks/${id}/progress`, {
         method: 'PATCH',
         headers: getAuthHeader(),
-        body: JSON.stringify({ progress })
+        body: JSON.stringify({ progress, note, status })
       });
       return handleResponse<any>(res);
     },

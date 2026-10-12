@@ -235,7 +235,7 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
 
   const finalAssigneeId = assignedToId || request.suggestedEmployeeId || request.targetEmployeeId;
   const assignedUser = db.users.find(u => u._id === finalAssigneeId && u.isActive);
-  const actualAssigneeId = assignedUser ? assignedUser._id : request.targetEmployeeId;
+  const actualAssigneeId = assignedUser ? assignedUser._id : (request.targetEmployeeId || req.user!._id);
 
   // Create real Task record!
   const newTask: Task = {
@@ -245,8 +245,8 @@ taskRequestRoutes.post('/:id/accept', requireAuth, (req: AuthenticatedRequest, r
     description: request.description,
     createdBy: request.requesterId,
     requestedBy: request.requesterId,
-    assignedTo: [actualAssigneeId],
-    collaborators: [request.requesterId, req.user!._id],
+    assignedTo: [actualAssigneeId].filter(Boolean),
+    collaborators: [request.requesterId, req.user!._id].filter(Boolean),
     sourceDepartmentId: request.requesterDepartmentId,
     targetDepartmentId: request.targetDepartmentId,
     departmentId: request.targetDepartmentId,
@@ -341,7 +341,11 @@ taskRequestRoutes.post('/:id/assign', requireAuth, (req: AuthenticatedRequest, r
     return;
   }
 
-  const task = db.tasks.find(t => t._id === request.convertedTaskId);
+  const task = db.tasks.find(t => 
+    t._id === request.convertedTaskId || 
+    t.relatedRequestId === request._id || 
+    t.taskId === request.convertedTaskId
+  );
   if (!task) {
     res.status(404).json({ success: false, message: 'Converted task not found' });
     return;

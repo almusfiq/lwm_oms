@@ -217,12 +217,87 @@ class DatabaseManager {
       task.departmentId = resolveDepartmentId(task.departmentId, departments) || 'dept_admin';
       task.sourceDepartmentId = resolveDepartmentId(task.sourceDepartmentId, departments);
       task.targetDepartmentId = resolveDepartmentId(task.targetDepartmentId, departments);
+      if (!Array.isArray(task.assignedTo)) {
+        task.assignedTo = task.assignedTo ? [String(task.assignedTo)] : [];
+      } else {
+        task.assignedTo = task.assignedTo.map((a: any) => typeof a === 'object' ? String(a?._id || a?.id || a) : String(a)).filter(Boolean);
+      }
+      if (!Array.isArray(task.collaborators)) {
+        task.collaborators = task.collaborators ? [String(task.collaborators)] : [];
+      } else {
+        task.collaborators = task.collaborators.map((c: any) => typeof c === 'object' ? String(c?._id || c?.id || c) : String(c)).filter(Boolean);
+      }
     });
 
+    // Auto-recover any converted task requests whose tasks were missing due to ID collisions
+    const existingTaskIds = new Set(this.tasks.map(t => t._id));
     this.taskRequests.forEach(request => {
       request.requesterDepartmentId = resolveDepartmentId(request.requesterDepartmentId, departments) || 'dept_admin';
       request.targetDepartmentId = resolveDepartmentId(request.targetDepartmentId, departments) || 'dept_admin';
+
+      if (request.status === 'CONVERTED_TO_TASK' && request.convertedTaskId && !existingTaskIds.has(request.convertedTaskId)) {
+        const targetUserId = request.targetEmployeeId || request.suggestedEmployeeId;
+        const recoveredTask: Task = {
+          _id: request.convertedTaskId,
+          taskId: this.getNextTaskId(),
+          title: request.title,
+          description: request.description,
+          createdBy: request.requesterId,
+          requestedBy: request.requesterId,
+          assignedTo: targetUserId ? [targetUserId] : [],
+          collaborators: [request.requesterId],
+          sourceDepartmentId: request.requesterDepartmentId,
+          targetDepartmentId: request.targetDepartmentId,
+          departmentId: request.targetDepartmentId,
+          status: 'IN_PROGRESS',
+          priority: request.priority || 'MEDIUM',
+          progress: 0,
+          visibility: 'ORGANIZATION',
+          startDate: new Date().toISOString().split('T')[0],
+          dueDate: request.dueDate || new Date().toISOString().split('T')[0],
+          checklist: [],
+          tags: ['Cross-Dept', 'Recovered'],
+          attachments: request.attachments || [],
+          relatedRequestId: request._id,
+          createdAt: request.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        this.tasks.push(recoveredTask);
+        existingTaskIds.add(recoveredTask._id);
+        console.log(`[DB] Auto-recovered converted task ${recoveredTask.taskId} (${recoveredTask.title}) for request ${request.requestId}`);
+      }
     });
+
+    // Auto-recover "Hello" directive for Sharif if missing
+    if (!existingTaskIds.has('task_8f4ce4d2')) {
+      const recoveredHello: Task = {
+        _id: 'task_8f4ce4d2',
+        taskId: this.getNextTaskId(),
+        title: 'Hello',
+        description: 'Direct task directive from CEO',
+        createdBy: 'usr_ceo',
+        requestedBy: 'usr_ceo',
+        assignedTo: ['usr_ceo_sharif'],
+        collaborators: [],
+        sourceDepartmentId: 'dept_ceo',
+        targetDepartmentId: 'dept_ceo',
+        departmentId: 'dept_ceo',
+        status: 'TODO',
+        priority: 'MEDIUM',
+        progress: 0,
+        visibility: 'ORGANIZATION',
+        startDate: new Date().toISOString().split('T')[0],
+        dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+        checklist: [],
+        tags: [],
+        attachments: [],
+        createdAt: '2026-10-12T05:02:27.262Z',
+        updatedAt: new Date().toISOString()
+      };
+      this.tasks.push(recoveredHello);
+      existingTaskIds.add(recoveredHello._id);
+      console.log(`[DB] Auto-recovered task ${recoveredHello.taskId}: Hello for usr_ceo_sharif`);
+    }
 
     this.projects.forEach(project => {
       project.departments = project.departments.map(departmentId => resolveDepartmentId(departmentId, departments) || departmentId);
@@ -315,8 +390,8 @@ class DatabaseManager {
       });
       try {
         await model.bulkWrite(ops, { ordered: false });
-      } catch {
-        // Ignore duplicate key warnings on bulk write
+      } catch (err: any) {
+        console.error(`[DB] bulkWrite error for ${model.modelName}:`, err?.message || err);
       }
     }
   }
@@ -373,18 +448,75 @@ class DatabaseManager {
   }
 
   // ──────────────────────────────────────────────────────────
-  // ID generators — synchronous, use in-memory array lengths
+  // ID generators — synchronous, calculates max numeric suffix to prevent duplicate keys
   // ──────────────────────────────────────────────────────────
   public getNextTaskId(): string {
-    return `TASK-${String(this.tasks.length + 1).padStart(5, '0')}`;
+    const existing = new Set(this.tasks.map(t => (t.taskId || '').toUpperCase()));
+    let maxNum = 0;
+    for (const t of this.tasks) {
+      if (t.taskId) {
+        const match = t.taskId.match(/(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+    }
+    let nextNum = maxNum + 1;
+    let candidate = `TASK-${String(nextNum).padStart(5, '0')}`;
+    while (existing.has(candidate)) {
+      nextNum++;
+      candidate = `TASK-${String(nextNum).padStart(5, '0')}`;
+    }
+    return candidate;
   }
 
   public getNextRequestId(): string {
-    return `REQ-${String(this.taskRequests.length + 1).padStart(5, '0')}`;
+    const existing = new Set(this.taskRequests.map(r => (r.requestId || '').toUpperCase()));
+    let maxNum = 0;
+    for (const r of this.taskRequests) {
+      if (r.requestId) {
+        const match = r.requestId.match(/(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+    }
+    let nextNum = maxNum + 1;
+    let candidate = `REQ-${String(nextNum).padStart(5, '0')}`;
+    while (existing.has(candidate)) {
+      nextNum++;
+      candidate = `REQ-${String(nextNum).padStart(5, '0')}`;
+    }
+    return candidate;
   }
 
   public getNextProjectId(): string {
-    return `PRJ-${String(this.projects.length + 1).padStart(5, '0')}`;
+    const existing = new Set(this.projects.map(p => (p.projectId || '').toUpperCase()));
+    let maxNum = 0;
+    for (const p of this.projects) {
+      if (p.projectId) {
+        const match = p.projectId.match(/(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+    }
+    let nextNum = maxNum + 1;
+    let candidate = `PRJ-${String(nextNum).padStart(5, '0')}`;
+    while (existing.has(candidate)) {
+      nextNum++;
+      candidate = `PRJ-${String(nextNum).padStart(5, '0')}`;
+    }
+    return candidate;
   }
 
   public generateId(prefix: string): string {
