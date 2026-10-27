@@ -24,6 +24,8 @@ export interface User {
   uniqueId: string;       // e.g. "LWM-00001" — can be used to login
   name: LocalizedString;
   email: string;          // e.g. "naasehun.ameen@lwmbd.org" — used to login
+  personalEmail?: string; // e.g. "naasehun@gmail.com" — also used to login
+  alternateEmails?: string[]; // secondary/personal emails used for login credential
   password?: string;
   passwordHash?: string;
   designation: LocalizedString;

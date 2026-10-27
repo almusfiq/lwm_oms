@@ -21,11 +21,14 @@ authRoutes.post('/login', async (req, res: Response) => {
       return;
     }
 
-    // Find user by email OR employeeId OR uniqueId (case-insensitive)
+    // Find user by official email OR personalEmail OR alternateEmails OR employeeId OR uniqueId (case-insensitive)
+    const lowerInput = loginInput.toLowerCase();
     const user = db.users.find(u =>
-      (u.email && u.email.toLowerCase() === loginInput.toLowerCase()) ||
-      (u.employeeId && u.employeeId.toLowerCase() === loginInput.toLowerCase()) ||
-      (u.uniqueId && u.uniqueId.toLowerCase() === loginInput.toLowerCase())
+      (u.email && u.email.toLowerCase() === lowerInput) ||
+      (u.personalEmail && u.personalEmail.toLowerCase() === lowerInput) ||
+      (u.alternateEmails && Array.isArray(u.alternateEmails) && u.alternateEmails.some(e => e && e.toLowerCase() === lowerInput)) ||
+      (u.employeeId && u.employeeId.toLowerCase() === lowerInput) ||
+      (u.uniqueId && u.uniqueId.toLowerCase() === lowerInput)
     );
 
     if (!user) {

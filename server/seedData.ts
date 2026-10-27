@@ -12,11 +12,17 @@ export async function seedDatabase(force = false) {
   if (!force && isExistingDb) {
     const hasCeoDept = db.departments.some(d => d._id === 'dept_ceo' || d.code === 'CEO');
     const hasCeoStaff = db.users.some(u => u._id === 'usr_ceo_jeba');
-    if (hasCeoDept && hasCeoStaff) {
-      console.log(`[Seed] Database already seeded (${db.users.length} users, ${db.departments.length} departments). Skipping.`);
+    const missingPersonalEmails = MASTER_PERSONNEL.some(p => {
+      if (!p.personalEmail) return false;
+      const u = db.users.find(eu => eu._id === p._id || eu.email.toLowerCase() === p.email.toLowerCase());
+      return !u || u.personalEmail !== p.personalEmail;
+    });
+
+    if (hasCeoDept && hasCeoStaff && !missingPersonalEmails) {
+      console.log(`[Seed] Database already seeded and up-to-date (${db.users.length} users, ${db.departments.length} departments). Skipping.`);
       return;
     }
-    console.log('[Seed] Detected missing CEO office or staff in existing database. Synchronizing updates...');
+    console.log('[Seed] Detected missing updates, personal credentials or staff in existing database. Synchronizing updates...');
   }
 
   console.log('[Seed] Seeding Liberation War Museum workspace data...');
@@ -115,6 +121,8 @@ export async function seedDatabase(force = false) {
     uniqueId: p.uniqueId,
     name: p.name,
     email: p.email,
+    personalEmail: p.personalEmail,
+    alternateEmails: p.alternateEmails,
     password: defaultPassword,
     designation: p.designation,
     departmentId: p.departmentId,
@@ -837,13 +845,17 @@ export async function seedDatabase(force = false) {
       }
     });
 
-    // Add missing users & update CEO departmentId
+    // Add missing users & update personalEmail, alternateEmails, and CEO departmentId
     usersData.forEach(u => {
       const existing = db.users.find(eu => eu._id === u._id || eu.email.toLowerCase() === u.email.toLowerCase());
       if (!existing) {
         db.users.push(u);
-      } else if (u._id === 'usr_ceo' && !existing.departmentId) {
-        existing.departmentId = 'dept_ceo';
+      } else {
+        if (u.personalEmail) existing.personalEmail = u.personalEmail;
+        if (u.alternateEmails) existing.alternateEmails = u.alternateEmails;
+        if (u._id === 'usr_ceo' && !existing.departmentId) {
+          existing.departmentId = 'dept_ceo';
+        }
       }
     });
 

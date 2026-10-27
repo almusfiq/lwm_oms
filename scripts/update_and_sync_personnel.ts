@@ -17,18 +17,16 @@ async function syncAll() {
 
   const usersCollection = db.collection('users');
 
-  // Remove secondaryEmail from all existing user documents in MongoDB
-  console.log('Removing secondaryEmail / alias emails from all database records...');
-  await usersCollection.updateMany({}, { $unset: { secondaryEmail: 1 } });
-
-  console.log(`Synchronizing ${MASTER_PERSONNEL.length} personnel records...`);
+  console.log(`Synchronizing ${MASTER_PERSONNEL.length} personnel records with official and personal login emails...`);
 
   for (const person of MASTER_PERSONNEL) {
-    const updateDoc = {
+    const updateDoc: any = {
       employeeId: person.employeeId,
       uniqueId: person.uniqueId,
       name: person.name,
       email: person.email,
+      personalEmail: person.personalEmail || null,
+      alternateEmails: person.alternateEmails || (person.personalEmail ? [person.personalEmail] : []),
       designation: person.designation,
       role: person.role,
       roleId: person.role,
@@ -57,13 +55,10 @@ async function syncAll() {
             ...updateDoc,
             password: existing.password || defaultPasswordHash,
             passwordHash: existing.passwordHash || defaultPasswordHash
-          },
-          $unset: {
-            secondaryEmail: 1
           }
         }
       );
-      console.log(`✓ Updated: [${person.employeeId}] ${person.name.en} (${person.name.bn}) -> ${person.email}`);
+      console.log(`✓ Updated: [${person.employeeId}] ${person.name.en} -> Official: ${person.email} | Personal: ${person.personalEmail || 'N/A'}`);
     } else {
       await usersCollection.insertOne({
         _id: person._id,
@@ -72,16 +67,16 @@ async function syncAll() {
         passwordHash: defaultPasswordHash,
         createdAt: new Date().toISOString()
       });
-      console.log(`+ Inserted: [${person.employeeId}] ${person.name.en} (${person.name.bn}) -> ${person.email}`);
+      console.log(`+ Inserted: [${person.employeeId}] ${person.name.en} -> Official: ${person.email} | Personal: ${person.personalEmail || 'N/A'}`);
     }
   }
 
-  // Generate CREDENTIALS.md (Single Email, No Alias)
-  console.log('Generating updated CREDENTIALS.md (Single Email, No Alias)...');
+  // Generate CREDENTIALS.md
+  console.log('Generating updated CREDENTIALS.md...');
   let md = '# Liberation War Museum (LWM) OMS — User Credentials Directory\n\n';
   md += '> **Default Password for All Accounts**: `LWM@2026`\n';
   md += `> **Total Registered Personnel**: ${MASTER_PERSONNEL.length}\n`;
-  md += '> **Authentication**: Each employee has exactly one official email address for login. They can also log in using their Employee ID or Unique ID with the password `LWM@2026`.\n\n';
+  md += '> **Authentication**: Each employee can log in using either their **Official Museum Email** (`@lwmbd.org`), their **Personal Email** (where configured), or their **Employee ID** / **Unique ID** with default password `LWM@2026`.\n\n';
 
   // Group by category
   const categories = Array.from(new Set(MASTER_PERSONNEL.map(p => p.category)));
@@ -89,18 +84,18 @@ async function syncAll() {
   categories.forEach((cat, idx) => {
     const group = MASTER_PERSONNEL.filter(p => p.category === cat);
     md += `## ${idx + 1}. ${cat} (${group.length})\n\n`;
-    md += '| # | English Name | Bengali Name (বাংলা নাম) | Designation | Role | Employee ID | Email (Login ID) | Default Password |\n';
-    md += '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n';
+    md += '| # | English Name | Bengali Name (বাংলা নাম) | Designation | Role | Employee ID | Official Email | Personal Email (Login Credential) | Default Password |\n';
+    md += '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n';
     group.forEach((u, i) => {
-      md += `| ${i + 1} | **${u.name.en}** | ${u.name.bn} | ${u.designation.en} | \`${u.role}\` | \`${u.employeeId}\` | \`${u.email}\` | \`LWM@2026\` |\n`;
+      md += `| ${i + 1} | **${u.name.en}** | ${u.name.bn} | ${u.designation.en} | \`${u.role}\` | \`${u.employeeId}\` | \`${u.email}\` | ${u.personalEmail ? `\`${u.personalEmail}\`` : '—'} | \`LWM@2026\` |\n`;
     });
     md += '\n';
   });
 
   fs.writeFileSync('CREDENTIALS.md', md, 'utf8');
 
-  // Generate CREDENTIALS.txt (Single Email, No Alias)
-  console.log('Generating updated CREDENTIALS.txt (Single Email, No Alias)...');
+  // Generate CREDENTIALS.txt
+  console.log('Generating updated CREDENTIALS.txt...');
   let txt = '========================================================================================\n';
   txt += '   LIBERATION WAR MUSEUM (LWM) OMS — CREDENTIALS DIRECTORY\n';
   txt += '   DEFAULT SYSTEM PASSWORD FOR ALL ACCOUNTS: LWM@2026\n';
@@ -112,12 +107,15 @@ async function syncAll() {
     txt += `--- ${cat.toUpperCase()} (${group.length} Personnel) ---\n`;
     txt += `----------------------------------------------------------------------------------------\n`;
     group.forEach(u => {
-      txt += `Name:         ${u.name.en} / ${u.name.bn}\n`;
-      txt += `Designation:  ${u.designation.en} (${u.designation.bn})\n`;
-      txt += `Role / Tier:  ${u.role} (${u.tier || u.role})\n`;
-      txt += `Employee ID:  ${u.employeeId} | Unique ID: ${u.uniqueId}\n`;
-      txt += `Email:        ${u.email}\n`;
-      txt += `Password:     LWM@2026\n`;
+      txt += `Name:           ${u.name.en} / ${u.name.bn}\n`;
+      txt += `Designation:    ${u.designation.en} (${u.designation.bn})\n`;
+      txt += `Role / Tier:    ${u.role} (${u.tier || u.role})\n`;
+      txt += `Employee ID:    ${u.employeeId} | Unique ID: ${u.uniqueId}\n`;
+      txt += `Official Email: ${u.email}\n`;
+      if (u.personalEmail) {
+        txt += `Personal Login: ${u.personalEmail}\n`;
+      }
+      txt += `Password:       LWM@2026\n`;
       txt += `----------------------------------------------------------------------------------------\n`;
     });
     txt += '\n';
@@ -126,7 +124,7 @@ async function syncAll() {
   fs.writeFileSync('CREDENTIALS.txt', txt, 'utf8');
 
   await mongoose.disconnect();
-  console.log('ALL SYNCS AND CREDENTIAL FILES GENERATED SUCCESSFULLY (NO ALIAS EMAILS)!');
+  console.log('ALL SYNCS AND CREDENTIAL FILES GENERATED SUCCESSFULLY!');
 }
 
 syncAll().catch(err => {

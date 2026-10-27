@@ -1,4 +1,4 @@
-﻿{
+{
   "users": [
     {
       "_id": "usr_trustee_1",
@@ -17,7 +17,11 @@
       "tier": "TRUSTEE",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "drsarwarali42@gmail.com",
+      "alternateEmails": [
+        "drsarwarali42@gmail.com"
+      ]
     },
     {
       "_id": "usr_trustee_2",
@@ -36,7 +40,11 @@
       "tier": "TRUSTEE",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "mofidul_hoque@yahoo.com",
+      "alternateEmails": [
+        "mofidul_hoque@yahoo.com"
+      ]
     },
     {
       "_id": "usr_trustee_3",
@@ -55,7 +63,11 @@
       "tier": "TRUSTEE",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "noornpmbd@gmail.com",
+      "alternateEmails": [
+        "noornpmbd@gmail.com"
+      ]
     },
     {
       "_id": "usr_trustee_4",
@@ -74,7 +86,11 @@
       "tier": "TRUSTEE",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "sara.zaker@gmail.com",
+      "alternateEmails": [
+        "sara.zaker@gmail.com"
+      ]
     },
     {
       "_id": "usr_trustee_5",
@@ -171,7 +187,11 @@
       "phone": "+880 1711-000100",
       "createdAt": "2026-01-01T00:00:00.000Z",
       "updatedAt": "2026-01-01T00:00:00.000Z",
-      "lastLoginAt": "2026-09-14T10:48:20.825Z"
+      "lastLoginAt": "2026-09-14T10:48:20.825Z",
+      "personalEmail": "naasehun@gmail.com",
+      "alternateEmails": [
+        "naasehun@gmail.com"
+      ]
     },
     {
       "_id": "usr_admin_head",
@@ -191,7 +211,11 @@
       "tier": "DEPT_HEAD",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "singha_LWM@yahoo.com",
+      "alternateEmails": [
+        "singha_LWM@yahoo.com"
+      ]
     },
     {
       "_id": "usr_admin_1",
@@ -211,7 +235,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "fakhrul28121977@gmail.com",
+      "alternateEmails": [
+        "fakhrul28121977@gmail.com"
+      ]
     },
     {
       "_id": "usr_admin_2",
@@ -231,7 +259,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "ranikabita1976@gmail.com",
+      "alternateEmails": [
+        "ranikabita1976@gmail.com"
+      ]
     },
     {
       "_id": "usr_admin_3",
@@ -331,7 +363,11 @@
       "tier": "STAFF",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "gaziraju900@gmail.com",
+      "alternateEmails": [
+        "gaziraju900@gmail.com"
+      ]
     },
     {
       "_id": "usr_admin_8",
@@ -371,7 +407,11 @@
       "tier": "DEPT_HEAD",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "kamaluddinlwm@gmail.com",
+      "alternateEmails": [
+        "kamaluddinlwm@gmail.com"
+      ]
     },
     {
       "_id": "usr_finance_1",
@@ -391,7 +431,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "kalamlwm@gmail.com",
+      "alternateEmails": [
+        "kalamlwm@gmail.com"
+      ]
     },
     {
       "_id": "usr_finance_2",
@@ -411,7 +455,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "hakimul2525@gmail.com",
+      "alternateEmails": [
+        "hakimul2525@gmail.com"
+      ]
     },
     {
       "_id": "usr_prog_head",
@@ -431,7 +479,11 @@
       "tier": "DEPT_HEAD",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "rafiq.lwm@gmail.com",
+      "alternateEmails": [
+        "rafiq.lwm@gmail.com"
+      ]
     },
     {
       "_id": "usr_prog_1",
@@ -451,7 +503,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "promilabiswas.ce7@gmail.com",
+      "alternateEmails": [
+        "promilabiswas.ce7@gmail.com"
+      ]
     },
     {
       "_id": "usr_prog_2",
@@ -471,7 +527,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "kmnasiru25@gmail.com",
+      "alternateEmails": [
+        "kmnasiru25@gmail.com"
+      ]
     },
     {
       "_id": "usr_prog_3",
@@ -491,7 +551,11 @@
       "tier": "STAFF",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "bulu00704@gmail.com",
+      "alternateEmails": [
+        "bulu00704@gmail.com"
+      ]
     },
     {
       "_id": "usr_edu_head",
@@ -511,7 +575,11 @@
       "tier": "DEPT_HEAD",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "satyaandroy@yahoo.com",
+      "alternateEmails": [
+        "satyaandroy@yahoo.com"
+      ]
     },
     {
       "_id": "usr_edu_1",
@@ -531,7 +599,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "smmohsin116@gmail.com",
+      "alternateEmails": [
+        "smmohsin116@gmail.com"
+      ]
     },
     {
       "_id": "usr_edu_2",
@@ -551,7 +623,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "ranjanlwm7@gmail.com",
+      "alternateEmails": [
+        "ranjanlwm7@gmail.com"
+      ]
     },
     {
       "_id": "usr_edu_3",
@@ -571,7 +647,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "ranika0611@gmail.com",
+      "alternateEmails": [
+        "ranika0611@gmail.com"
+      ]
     },
     {
       "_id": "usr_archive_head",
@@ -591,7 +671,11 @@
       "tier": "DEPT_HEAD",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "amenatapsam@gmail.com",
+      "alternateEmails": [
+        "amenatapsam@gmail.com"
+      ]
     },
     {
       "_id": "usr_archive_1",
@@ -611,7 +695,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "montusharker@gmail.com",
+      "alternateEmails": [
+        "montusharker@gmail.com"
+      ]
     },
     {
       "_id": "usr_archive_2",
@@ -631,7 +719,11 @@
       "tier": "OFFICER",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "reza.stamford@gmail.com",
+      "alternateEmails": [
+        "reza.stamford@gmail.com"
+      ]
     },
     {
       "_id": "usr_archive_3",
@@ -651,7 +743,11 @@
       "tier": "STAFF",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "ahmedmirza71@gmail.com",
+      "alternateEmails": [
+        "ahmedmirza71@gmail.com"
+      ]
     },
     {
       "_id": "usr_research_head",
@@ -671,7 +767,11 @@
       "tier": "DEPT_HEAD",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "rezina_bd@yahoo.com",
+      "alternateEmails": [
+        "rezina_bd@yahoo.com"
+      ]
     },
     {
       "_id": "usr_research_1",
@@ -731,7 +831,11 @@
       "tier": "DEPT_HEAD",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "Sagorsikder95@gmail.com",
+      "alternateEmails": [
+        "Sagorsikder95@gmail.com"
+      ]
     },
     {
       "_id": "usr_maint_1",
@@ -751,7 +855,11 @@
       "tier": "STAFF",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "shamimahmedabc935273@gmail.com",
+      "alternateEmails": [
+        "shamimahmedabc935273@gmail.com"
+      ]
     },
     {
       "_id": "usr_maint_2",
@@ -771,7 +879,11 @@
       "tier": "STAFF",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z"
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "personalEmail": "sumaiyaa667@gmail.com",
+      "alternateEmails": [
+        "sumaiyaa667@gmail.com"
+      ]
     },
     {
       "_id": "usr_maint_3",

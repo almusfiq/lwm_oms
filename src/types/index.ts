@@ -30,6 +30,8 @@ export interface User {
   uniqueId?: string;
   name: LocalizedString;
   email: string;
+  personalEmail?: string;
+  alternateEmails?: string[];
   designation: LocalizedString;
   departmentId?: string;
   department?: DepartmentRef | null;

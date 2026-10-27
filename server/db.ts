@@ -61,7 +61,7 @@ function model<T>(name: string, fields: Record<string, any>) {
   catch { return mongoose.model<T & mongoose.Document>(name, S(fields)); }
 }
 
-const UserModel     = model<User>      ('User',         { employeeId: String, email: { type: String, unique: true }, passwordHash: String });
+const UserModel     = model<User>      ('User',         { employeeId: String, email: { type: String, unique: true }, personalEmail: String, alternateEmails: [String], passwordHash: String });
 const DeptModel     = model<Department>('Department',   { code: { type: String, unique: true } });
 const TaskModel     = model<Task>      ('Task',         { taskId: { type: String, unique: true } });
 const ReqModel      = model<TaskRequest>('TaskRequest', { requestId: { type: String, unique: true } });
