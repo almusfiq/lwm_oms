@@ -160,6 +160,7 @@ function MainApp() {
           {currentTab === 'board' && (
             <TasksPage
               mode="all"
+              initialView="board"
               initialFilters={taskFilters}
               onOpenTaskDetail={setActiveTaskId}
               onOpenCreateTask={() => {

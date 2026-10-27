@@ -3,9 +3,9 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/client';
 import { UserAvatar } from '../common/UserAvatar';
 import { Notification } from '../../types';
-import { 
-  Bell, Search, RefreshCw, UserCheck, Check, 
-  Menu, Building2, ShieldCheck, LogOut, Plus 
+import {
+  Bell, Search, RefreshCw, UserCheck, Check,
+  Menu, Building2, ShieldCheck, LogOut, Plus
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -101,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shrink-0">
       <div className="px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        
+
         {/* Left: Mobile Toggle & Brand Indicator */}
         <div className="flex items-center gap-3">
           <button
@@ -119,11 +119,11 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                Liberation War Museum
-                <span className="text-xs font-normal text-slate-500 font-sans">| মুক্তিযুদ্ধ জাদুঘর</span>
+                মুক্তিযুদ্ধ জাদুঘর
+                <span className="text-xs font-normal text-slate-500 font-sans">| Liberation War Museum</span>
               </div>
               <div className="text-[11px] text-slate-500 tracking-wide">
-                Enterprise Office & Task Management System
+                Office & Task Management System
               </div>
             </div>
           </div>
@@ -216,9 +216,8 @@ export const Header: React.FC<HeaderProps> = ({
                         <div
                           key={n._id}
                           onClick={() => handleNotificationClick(n)}
-                          className={`p-3 text-left cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 ${
-                            !n.isRead ? 'bg-red-50/40 dark:bg-red-950/20' : ''
-                          }`}
+                          className={`p-3 text-left cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 ${!n.isRead ? 'bg-red-50/40 dark:bg-red-950/20' : ''
+                            }`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{n.title}</span>

@@ -13,34 +13,34 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority, showIcon
   const config: Record<string, { label: string; bg: string; text: string; icon: React.ReactNode }> = {
     URGENT: {
       label: 'Urgent',
-      bg: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/40',
-      text: 'text-red-700 dark:text-red-400',
-      icon: <AlertCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+      bg: 'bg-red-50 text-red-800 border-red-200/90 dark:bg-red-950/50 dark:text-red-300 dark:border-red-900/60 font-bold shadow-2xs',
+      text: 'text-red-800 dark:text-red-300',
+      icon: <AlertCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400 shrink-0" />
     },
     HIGH: {
       label: 'High',
-      bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40',
-      text: 'text-amber-700 dark:text-amber-400',
-      icon: <ArrowUp className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+      bg: 'bg-amber-50 text-amber-800 border-amber-200/90 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900/60 font-bold shadow-2xs',
+      text: 'text-amber-800 dark:text-amber-300',
+      icon: <ArrowUp className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
     },
     MEDIUM: {
       label: 'Medium',
-      bg: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800/40',
-      text: 'text-blue-700 dark:text-blue-400',
-      icon: <ArrowRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+      bg: 'bg-blue-50 text-blue-800 border-blue-200/90 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60 font-bold shadow-2xs',
+      text: 'text-blue-800 dark:text-blue-300',
+      icon: <ArrowRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
     },
     LOW: {
       label: 'Low',
-      bg: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/60 dark:text-slate-400 dark:border-slate-800',
-      text: 'text-slate-600 dark:text-slate-400',
-      icon: <ArrowDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+      bg: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:border-slate-700 font-semibold shadow-2xs',
+      text: 'text-slate-700 dark:text-slate-300',
+      icon: <ArrowDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
     }
   };
 
   const current = config[norm] || config.MEDIUM;
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-medium border ${current.bg} whitespace-nowrap`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border ${current.bg} whitespace-nowrap`}>
       {showIcon && current.icon}
       <span>{current.label}</span>
     </span>

@@ -45,14 +45,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           />
         </div>
 
-        <h2 className="mt-6 text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-          Liberation War Museum
+        <h2 className="mt-6 text-3xl font-black tracking-tight text-red-800 dark:text-red-400">
+          মুক্তিযুদ্ধ জাদুঘর
         </h2>
-        <div className="mt-1 text-sm font-sans text-red-800 dark:text-red-400 font-semibold tracking-wide">
-          মুক্তিযুদ্ধ জাদুঘর • ঢাকা, বাংলাদেশ
+        <div className="mt-1 text-sm font-sans text-slate-900 dark:text-slate-100 font-semibold tracking-wide">
+          Liberation War Museum • Dhaka, Bangladesh
         </div>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Enterprise Office &amp; Task Management System
+          Office &amp; Task Management System
         </p>
       </div>
 
@@ -128,7 +128,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
 
         <p className="mt-8 text-center text-xs font-medium text-slate-400 dark:text-slate-500 tracking-wide">
-          Plot 1/1, Sher-e-Bangla Nagar, Agargaon, Dhaka-1207
+          Plot # F-11/A-B, Agargaon, Sher-E- Banglanagar
+          Dhaka-1207, Bangladesh
           <br className="mt-1" />
           Official Liberation War Museum Portal
         </p>
