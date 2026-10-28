@@ -45,10 +45,15 @@ interface CalendarItem {
 export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) => {
   const { user } = useAuth();
 
+  const formatYMD = (y: number, m: number, d: number): string => {
+    return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  };
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [selectedDateStr, setSelectedDateStr] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(() => {
+    const d = new Date();
+    return formatYMD(d.getFullYear(), d.getMonth(), d.getDate());
+  });
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
@@ -63,17 +68,17 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch user's tasks
-      const tasksRes = await api.tasks.list({ myTasks: 'true', limit: 300 });
-      setTasks(tasksRes.items || []);
+      // Fetch tasks (role-based visibility handled by backend: staff sees assigned, dept heads see dept, trustees/ceo see museum)
+      const tasksRes = await api.tasks.list({ limit: 500 });
+      setTasks(Array.isArray(tasksRes?.items) ? tasksRes.items : (Array.isArray(tasksRes) ? tasksRes : (tasksRes as any)?.data || []));
 
       // Fetch public museum events
       const eventsRes = await api.events.list();
-      setEvents(eventsRes || []);
+      setEvents(Array.isArray(eventsRes) ? eventsRes : (eventsRes as any)?.data || (eventsRes as any)?.items || []);
 
       // Fetch cross-department work requests
       const requestsRes = await api.taskRequests.list();
-      setTaskRequests(requestsRes || []);
+      setTaskRequests(Array.isArray(requestsRes) ? requestsRes : (requestsRes as any)?.data || (requestsRes as any)?.items || []);
     } catch (err) {
       console.error('Failed to fetch calendar data:', err);
     } finally {
@@ -85,13 +90,19 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
     fetchData();
   }, []);
 
-  // Format date helper: YYYY-MM-DD
+  // Format date helper: YYYY-MM-DD (immune to local timezone conversion shifts)
   const toDateStr = (dateInput: any): string | null => {
     if (!dateInput) return null;
+    if (typeof dateInput === 'string') {
+      const match = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+      }
+    }
     try {
       const d = new Date(dateInput);
       if (isNaN(d.getTime())) return null;
-      return d.toISOString().split('T')[0];
+      return formatYMD(d.getFullYear(), d.getMonth(), d.getDate());
     } catch {
       return null;
     }
@@ -107,6 +118,12 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
         return;
       }
 
+      const taskTitle = typeof task.title === 'object' ? (task.title.en || task.title.bn) : task.title;
+      const taskCode = task.taskId || task.code || task.customId;
+      const deptName = typeof task.department?.name === 'object'
+        ? (task.department.name.en || task.department.name.bn)
+        : (task.department?.name || task.department?.code);
+
       // Task Due Date
       const dueStr = toDateStr(task.dueDate);
       if (dueStr) {
@@ -114,11 +131,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
           id: `task-due-${task._id}`,
           type: 'TASK_DUE',
           dateStr: dueStr,
-          title: typeof task.title === 'object' ? task.title.en || task.title.bn : task.title,
-          code: task.code || task.customId,
+          title: taskTitle,
+          code: taskCode,
           priority: task.priority || 'MEDIUM',
           status: task.status,
-          department: task.department?.name?.en || task.department?.name,
+          department: deptName,
           rawObj: task
         });
       }
@@ -130,28 +147,28 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
           id: `task-start-${task._id}`,
           type: 'TASK_START',
           dateStr: startStr,
-          title: typeof task.title === 'object' ? task.title.en || task.title.bn : task.title,
-          code: task.code || task.customId,
+          title: taskTitle,
+          code: taskCode,
           priority: task.priority || 'MEDIUM',
           status: task.status,
-          department: task.department?.name?.en || task.department?.name,
+          department: deptName,
           rawObj: task
         });
       }
 
       // Task Completed Date
-      if (task.status === 'COMPLETED' && task.updatedAt) {
-        const completedStr = toDateStr(task.updatedAt);
+      if (task.status === 'COMPLETED' && (task.completedAt || task.updatedAt)) {
+        const completedStr = toDateStr(task.completedAt || task.updatedAt);
         if (completedStr && completedStr !== dueStr) {
           items.push({
             id: `task-comp-${task._id}`,
             type: 'TASK_COMPLETED',
             dateStr: completedStr,
-            title: typeof task.title === 'object' ? task.title.en || task.title.bn : task.title,
-            code: task.code || task.customId,
+            title: taskTitle,
+            code: taskCode,
             priority: task.priority || 'MEDIUM',
             status: task.status,
-            department: task.department?.name?.en || task.department?.name,
+            department: deptName,
             rawObj: task
           });
         }
@@ -182,16 +199,25 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
         return;
       }
 
-      const reqDateStr = toDateStr(req.createdAt || req.targetDate);
+      const reqDateStr = toDateStr(req.dueDate || req.createdAt || req.targetDate);
       if (reqDateStr) {
+        const reqDept = typeof req.targetDepartment?.name === 'object'
+          ? (req.targetDepartment.name.en || req.targetDepartment.name.bn)
+          : (req.targetDepartment?.name || req.targetDepartment?.code || (
+              typeof req.requesterDepartment?.name === 'object'
+                ? (req.requesterDepartment.name.en || req.requesterDepartment.name.bn)
+                : req.requesterDepartment?.name
+            ));
+
         items.push({
           id: `req-${req._id}`,
           type: 'WORK_REQUEST',
           dateStr: reqDateStr,
           title: typeof req.title === 'object' ? req.title.en || req.title.bn : req.title,
-          code: req.code,
+          code: req.requestId || req.code,
           priority: req.priority || 'MEDIUM',
           status: req.status,
+          department: reqDept,
           rawObj: req
         });
       }
@@ -264,7 +290,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
   const goToToday = () => {
     const today = new Date();
     setCurrentDate(new Date(today.getFullYear(), today.getMonth(), 1));
-    setSelectedDateStr(today.toISOString().split('T')[0]);
+    setSelectedDateStr(formatYMD(today.getFullYear(), today.getMonth(), today.getDate()));
   };
 
   // Generate Month Grid Days
@@ -280,13 +306,14 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
       isToday: boolean;
     }> = [];
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayStr = formatYMD(now.getFullYear(), now.getMonth(), now.getDate());
 
     // Previous month padding
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dayNum = daysInPrevMonth - i;
       const prevDate = new Date(year, month - 1, dayNum);
-      const dateStr = prevDate.toISOString().split('T')[0];
+      const dateStr = formatYMD(prevDate.getFullYear(), prevDate.getMonth(), dayNum);
       days.push({
         dateNum: dayNum,
         dateStr,
@@ -297,8 +324,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
 
     // Current month days
     for (let dayNum = 1; dayNum <= daysInCurrentMonth; dayNum++) {
-      const curDate = new Date(year, month, dayNum);
-      const dateStr = curDate.toISOString().split('T')[0];
+      const dateStr = formatYMD(year, month, dayNum);
       days.push({
         dateNum: dayNum,
         dateStr,
@@ -307,17 +333,18 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
       });
     }
 
-    // Next month padding to reach 35 or 42 cells
-    const remainingSlots = (7 - (days.length % 7)) % 7;
-    for (let dayNum = 1; dayNum <= remainingSlots; dayNum++) {
-      const nextDate = new Date(year, month + 1, dayNum);
-      const dateStr = nextDate.toISOString().split('T')[0];
+    // Next month padding to reach a complete week (multiple of 7) and at least 35 cells
+    let nextMonthDay = 1;
+    while (days.length % 7 !== 0 || days.length < 35) {
+      const nextDate = new Date(year, month + 1, nextMonthDay);
+      const dateStr = formatYMD(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
       days.push({
-        dateNum: dayNum,
+        dateNum: nextDate.getDate(),
         dateStr,
         isCurrentMonth: false,
         isToday: dateStr === todayStr
       });
+      nextMonthDay++;
     }
 
     return days;
@@ -330,8 +357,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
 
   // Format selected date nicely
   const formattedSelectedDate = useMemo(() => {
-    if (!selectedDateStr) return '';
+    if (!selectedDateStr || !selectedDateStr.includes('-')) return '';
     const [y, m, d] = selectedDateStr.split('-').map(Number);
+    if (!y || !m || !d) return '';
     const dateObj = new Date(y, m - 1, d);
     return dateObj.toLocaleDateString('en-US', {
       weekday: 'long',
@@ -668,10 +696,20 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onOpenTaskDetail }) 
                     {['TASK_DUE', 'TASK_START', 'TASK_COMPLETED'].includes(item.type) && (
                       <button
                         type="button"
-                        onClick={() => onOpenTaskDetail(item.rawObj._id)}
-                        className="w-full mt-2 py-1.5 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-red-800 hover:text-white dark:hover:bg-red-800 hover:border-red-800 rounded-lg transition-all flex items-center justify-center gap-1.5"
+                        onClick={() => onOpenTaskDetail(item.rawObj._id || item.rawObj.taskId)}
+                        className="w-full mt-2 py-1.5 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-red-800 hover:text-white dark:hover:bg-red-800 hover:border-red-800 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span>View Task Details</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {item.type === 'WORK_REQUEST' && (item.rawObj.convertedTaskId || item.rawObj.convertedTask?._id) && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenTaskDetail(item.rawObj.convertedTaskId || item.rawObj.convertedTask?._id)}
+                        className="w-full mt-2 py-1.5 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-red-800 hover:text-white dark:hover:bg-red-800 hover:border-red-800 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>View Associated Task</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     )}
