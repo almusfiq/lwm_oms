@@ -329,3 +329,62 @@ export interface DirectMessage {
 }
 
 
+
+// ============================================================
+// Leave Management Types
+// ============================================================
+
+export type LeaveType = 
+  | 'EARNED'     // অমার্জিত ছুটি (Earned / Privilege Leave)
+  | 'CASUAL'     // সাধারন ছুটি (Casual Leave)
+  | 'SICK'       // অসুস্থজনিত ছুটি (Sick / Medical Leave)
+  | 'MATERNITY'  // মাতৃত্বকালীন ছুটি (Maternity Leave)
+  | 'PATERNITY'; // পিতৃত্বকালীন ছুটি (Paternity Leave)
+
+export type LeaveStatus = 
+  | 'PENDING'          // অপেক্ষমাণ
+  | 'APPROVED'         // অনুমোদিত
+  | 'REJECTED'         // প্রত্যাখ্যাত
+  | 'REFERRED_TO_CEO'  // মহাপরিচালকের নিকট প্রেরিত
+  | 'CANCELLED';       // বাতিল
+
+export interface LeaveStayAddress {
+  village: string;          // গ্রাম / মহল্লা / বাড়ি / সড়ক
+  postOffice: string;       // ডাকঘর
+  thana: string;            // থানা
+  upazila: string;          // উপজেলা
+  district: string;         // জেলা
+  emergencyContact: string; // জরুরি যোগাযোগের ফোন নম্বর
+}
+
+export interface LeaveRequest {
+  _id: string;
+  leaveId: string; // e.g. LEV-00001
+  applicantId: string;
+  applicantDepartmentId?: string;
+  startDate: string; // YYYY-MM-DD
+  returnDate: string; // YYYY-MM-DD (The date of arrive again)
+  daysCount: number;
+  leaveType: LeaveType;
+  leaveTypeName: string; // অমার্জিত ছুটি, সাধারন ছুটি, অসুস্থজনিত ছুটি, মাতৃত্বকালীন ছুটি, পিতৃত্বকালীন ছুটি
+  reason: string;
+  stayAddress: LeaveStayAddress;
+  reliefUserId: string; // who will do this work when he/she will be in leave
+  reliefNote?: string;
+  currentApproverId: string; // Dept Head or CEO
+  currentApproverRole: 'DEPT_HEAD' | 'CEO';
+  status: LeaveStatus;
+  decisionReason?: string;
+  referredAt?: string;
+  referralNote?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaveStats {
+  totalLeavesTaken: number;
+  totalDaysTaken: number;
+  typeBreakdown: Record<LeaveType, { name: string; count: number; days: number }>;
+}

@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CheckSquare, ListTodo, GitPullRequest,
   Kanban, Calendar, FolderKanban, Network, Building2,
   Users, CheckCheck, BarChart3, FileText, Megaphone,
-  CalendarDays, X, TrendingUp, UserCog, ShieldAlert, Send, MessageSquare
+  CalendarDays, X, TrendingUp, UserCog, ShieldAlert, Send, MessageSquare, CalendarOff
 } from 'lucide-react';
 
 export type NavTab =
@@ -26,7 +26,8 @@ export type NavTab =
   | 'events'
   | 'performance'
   | 'activity-logs'
-  | 'messages';
+  | 'messages'
+  | 'leaves';
 
 
 
@@ -141,6 +142,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Calendar — for everyone */}
           <NavBtn tab="calendar" icon={Calendar} label="Calendar" />
+
+          {/* Leave Management — for everyone */}
+          <NavBtn tab="leaves" icon={CalendarOff} label="Leave Management" />
 
           {/* Projects — Trustee, CEO, Dept Head */}
           {!isStaff && (

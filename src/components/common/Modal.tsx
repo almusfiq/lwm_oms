@@ -7,7 +7,7 @@ interface ModalProps {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl';
   id?: string;
 }
 
@@ -39,7 +39,9 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
     '3xl': 'max-w-3xl',
-    '4xl': 'max-w-4xl'
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+    '6xl': 'max-w-6xl'
   }[maxWidth];
 
   return (
@@ -51,7 +53,7 @@ export const Modal: React.FC<ModalProps> = ({
       }}
     >
       <div
-        className={`w-full ${widthClass} bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150`}
+        className={`w-full ${widthClass} bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[94vh] animate-in fade-in zoom-in-95 duration-150`}
         role="dialog"
         aria-modal="true"
       >

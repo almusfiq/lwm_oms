@@ -630,7 +630,65 @@ export const api = {
       });
       return handleResponse<any>(res);
     }
+  },
+  // Leave Management
+  leaves: {
+    list: async (params?: { status?: string; view?: string; employeeId?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.status) query.append('status', params.status);
+      if (params?.view) query.append('view', params.view);
+      if (params?.employeeId) query.append('employeeId', params.employeeId);
+      const res = await fetch(`${API_BASE}/leaves?${query.toString()}`, {
+        headers: getAuthHeader()
+      });
+      return handleResponse<any[]>(res);
+    },
+    get: async (id: string) => {
+      const res = await fetch(`${API_BASE}/leaves/${id}`, {
+        headers: getAuthHeader()
+      });
+      return handleResponse<any>(res);
+    },
+    getStats: async () => {
+      const res = await fetch(`${API_BASE}/leaves/stats/summary`, {
+        headers: getAuthHeader()
+      });
+      return handleResponse<{ myStats: any; pendingApprovalCount: number }>(res);
+    },
+    create: async (data: any) => {
+      const res = await fetch(`${API_BASE}/leaves`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        body: JSON.stringify(data)
+      });
+      return handleResponse<any>(res);
+    },
+    approve: async (id: string, reason?: string) => {
+      const res = await fetch(`${API_BASE}/leaves/${id}/approve`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        body: JSON.stringify({ reason })
+      });
+      return handleResponse<any>(res);
+    },
+    reject: async (id: string, reason: string) => {
+      const res = await fetch(`${API_BASE}/leaves/${id}/reject`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        body: JSON.stringify({ reason })
+      });
+      return handleResponse<any>(res);
+    },
+    refer: async (id: string, note?: string) => {
+      const res = await fetch(`${API_BASE}/leaves/${id}/refer`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        body: JSON.stringify({ note })
+      });
+      return handleResponse<any>(res);
+    }
   }
+
 };
 
 

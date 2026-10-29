@@ -22,6 +22,7 @@ import { analyticsRoutes } from './server/routes/analyticsRoutes';
 import { organogramRoutes } from './server/routes/organogramRoutes';
 import { uploadRoutes } from './server/routes/uploadRoutes';
 import { messageRoutes } from './server/routes/messageRoutes';
+import { leaveRoutes } from './server/routes/leaveRoutes';
 
 async function startServer() {
   const app = express();
@@ -191,6 +192,9 @@ async function startServer() {
 
     // Direct Messages (CEO / Dept Head / Trustee → individual or department)
     app.use('/api/messages', messageRoutes);
+
+    // Leaves & Leave Management
+    app.use('/api/leaves', leaveRoutes);
   } else {
     // ==========================================================
     // DEMO MODE

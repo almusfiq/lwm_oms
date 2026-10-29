@@ -1,4 +1,4 @@
-export type UserRole = 
+export type UserRole =
   | 'SUPER_ADMIN'
   | 'TRUSTEE'
   | 'CEO'
@@ -70,7 +70,7 @@ export interface Department {
   updatedAt: string;
 }
 
-export type TaskStatus = 
+export type TaskStatus =
   | 'TODO'
   | 'ACCEPTED'
   | 'IN_PROGRESS'
@@ -142,7 +142,7 @@ export interface Task {
   updatedAt: string;
 }
 
-export type TaskRequestStatus = 
+export type TaskRequestStatus =
   | 'PENDING'
   | 'ACCEPTED'
   | 'REJECTED'
@@ -232,23 +232,23 @@ export interface TaskComment {
 export interface Notification {
   _id: string;
   recipientId: string;
-  type: 
-    | 'TASK_REQUEST'
-    | 'TASK_ASSIGNED'
-    | 'TASK_ACCEPTED'
-    | 'TASK_REJECTED'
-    | 'CLARIFICATION_REQUEST'
-    | 'COMMENT'
-    | 'MENTION'
-    | 'FILE_UPLOADED'
-    | 'STATUS_CHANGED'
-    | 'PROGRESS_CHANGED'
-    | 'DEADLINE_APPROACHING'
-    | 'TASK_OVERDUE'
-    | 'TASK_COMPLETED'
-    | 'APPROVAL_REQUESTED'
-    | 'APPROVAL_COMPLETED'
-    | 'ANNOUNCEMENT';
+  type:
+  | 'TASK_REQUEST'
+  | 'TASK_ASSIGNED'
+  | 'TASK_ACCEPTED'
+  | 'TASK_REJECTED'
+  | 'CLARIFICATION_REQUEST'
+  | 'COMMENT'
+  | 'MENTION'
+  | 'FILE_UPLOADED'
+  | 'STATUS_CHANGED'
+  | 'PROGRESS_CHANGED'
+  | 'DEADLINE_APPROACHING'
+  | 'TASK_OVERDUE'
+  | 'TASK_COMPLETED'
+  | 'APPROVAL_REQUESTED'
+  | 'APPROVAL_COMPLETED'
+  | 'ANNOUNCEMENT';
   title: string;
   message: string;
   resourceType: 'TASK' | 'TASK_REQUEST' | 'PROJECT' | 'APPROVAL' | 'ANNOUNCEMENT' | 'EVENT';
@@ -339,7 +339,7 @@ export interface OfficeDocument {
   createdAt: string;
 }
 
-export type NavigationTab = 
+export type NavigationTab =
   | 'dashboard'
   | 'my-tasks'
   | 'all-tasks'
@@ -356,7 +356,8 @@ export type NavigationTab =
   | 'announcements'
   | 'events'
   | 'performance'
-  | 'messages';
+  | 'messages'
+  | 'leaves';
 
 export type NavTab = NavigationTab;
 
@@ -373,4 +374,132 @@ export interface DirectMessage {
   readBy: string[];
   isRead?: boolean;
   createdAt: string;
+}
+
+// ============================================================
+// Leave Management Types
+// ============================================================
+
+export type LeaveType =
+  | 'EARNED'     // অমার্জিত ছুটি (Earned / Privilege Leave)
+  | 'CASUAL'     // সাধারন ছুটি (Casual Leave)
+  | 'SICK'       // অসুস্থজনিত ছুটি (Sick / Medical Leave)
+  | 'MATERNITY'  // মাতৃত্বকালীন ছুটি (Maternity Leave)
+  | 'PATERNITY'; // পিতৃত্বকালীন ছুটি (Paternity Leave)
+
+export type LeaveStatus =
+  | 'PENDING'          // অপেক্ষমাণ
+  | 'APPROVED'         // অনুমোদিত
+  | 'REJECTED'         // প্রত্যাখ্যাত
+  | 'REFERRED_TO_CEO'  // মহাপরিচালকের নিকট প্রেরিত
+  | 'CANCELLED';       // বাতিল
+
+export interface LeaveStayAddress {
+  village: string;          // গ্রাম / মহল্লা / বাড়ি / সড়ক
+  postOffice: string;       // ডাকঘর
+  thana: string;            // থানা
+  upazila: string;          // উপজেলা
+  district: string;         // জেলা
+  emergencyContact: string; // জরুরি যোগাযোগের ফোন নম্বর
+}
+
+export interface LeaveRequest {
+  _id: string;
+  leaveId: string; // e.g. LEV-00001
+  applicantId: string;
+  applicant?: User | null;
+  applicantDepartmentId?: string;
+  department?: DepartmentRef | null;
+  startDate: string; // YYYY-MM-DD
+  returnDate: string; // YYYY-MM-DD (The date of arrive again)
+  daysCount: number;
+  leaveType: LeaveType;
+  leaveTypeName: string; // অমার্জিত ছুটি, সাধারন ছুটি, অসুস্থজনিত ছুটি, মাতৃত্বকালীন ছুটি, পিতৃত্বকালীন ছুটি
+  reason: string;
+  stayAddress: LeaveStayAddress;
+  reliefUserId: string; // who will do this work when he/she will be in leave
+  reliefUser?: User | null;
+  reliefNote?: string;
+  currentApproverId: string; // Dept Head or CEO
+  currentApprover?: User | null;
+  currentApproverRole: 'DEPT_HEAD' | 'CEO';
+  status: LeaveStatus;
+  decisionReason?: string;
+  referredAt?: string;
+  referralNote?: string;
+  reviewedBy?: string;
+  reviewer?: User | null;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaveStats {
+  totalLeavesTaken: number;
+  totalDaysTaken: number;
+  typeBreakdown: Record<LeaveType, { name: string; count: number; days: number }>;
+}
+
+// ============================================================
+// Leave Management Types
+// ============================================================
+
+export type LeaveType =
+  | 'EARNED'     // অমার্জিত ছুটি (Earned / Privilege Leave)
+  | 'CASUAL'     // সাধারন ছুটি (Casual Leave)
+  | 'SICK'       // অসুস্থজনিত ছুটি (Sick / Medical Leave)
+  | 'MATERNITY'  // মাতৃত্বকালীন ছুটি (Maternity Leave)
+  | 'PATERNITY'; // পিতৃত্বকালীন ছুটি (Paternity Leave)
+
+export type LeaveStatus =
+  the | 'PENDING'          // অপেক্ষমাণ
+  | 'APPROVED'         // অনুমোদিত
+  | 'REJECTED'         // প্রত্যাখ্যাত
+  | 'REFERRED_TO_CEO'  // মহাপরিচালকের নিকট প্রেরিত
+  | 'CANCELLED';       // বাতিল
+
+export interface LeaveStayAddress {
+  village: string;          // গ্রাম / মহল্লা / বাড়ি / সড়ক
+  postOffice: string;       // ডাকঘর
+  thana: string;            // থানা
+  upazila: string;          // উপজেলা
+  district: string;         // জেলা
+  emergencyContact: string; // জরুরি যোগাযোগের ফোন নম্বর
+}
+
+export interface LeaveRequest {
+  _id: string;
+  leaveId: string; // e.g. LEV-00001
+  applicantId: string;
+  applicant?: User | null;
+  applicantDepartmentId?: string;
+  department?: DepartmentRef | null;
+  startDate: string; // YYYY-MM-DD
+  returnDate: string; // YYYY-MM-DD (The date of arrive again)
+  daysCount: number;
+  leaveType: LeaveType;
+  leaveTypeName: string; // অমার্জিত ছুটি, সাধারন ছুটি, অসুস্থজনিত ছুটি, মাতৃত্বকালীন ছুটি, পিতৃত্বকালীন ছুটি
+  reason: string;
+  stayAddress: LeaveStayAddress;
+  reliefUserId: string; // who will do this work when he/she will be in leave
+  reliefUser?: User | null;
+  reliefNote?: string;
+  currentApproverId: string; // Dept Head or CEO
+  currentApprover?: User | null;
+  currentApproverRole: 'DEPT_HEAD' | 'CEO';
+  status: LeaveStatus;
+  decisionReason?: string;
+  referredAt?: string;
+  referralNote?: string;
+  reviewedBy?: string;
+  reviewer?: User | null;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaveStats {
+  totalLeavesTaken: number;
+  totalDaysTaken: number;
+  typeBreakdown: Record<LeaveType, { name: string; count: number; days: number }>;
 }

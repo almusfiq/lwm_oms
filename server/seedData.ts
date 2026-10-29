@@ -3,7 +3,7 @@ import { db } from './db';
 import { 
   User, Department, Task, TaskRequest, Project, 
   TaskComment, Notification, ActivityLog, Approval, 
-  EventItem, Announcement, OfficeDocument 
+  EventItem, Announcement, OfficeDocument, LeaveRequest 
 } from './types';
 import { MASTER_PERSONNEL } from './personnelData';
 
@@ -18,7 +18,8 @@ export async function seedDatabase(force = false) {
       return !u || u.personalEmail !== p.personalEmail;
     });
 
-    if (hasCeoDept && hasCeoStaff && !missingPersonalEmails) {
+    const hasLeaves = db.leaves && db.leaves.length > 0;
+    if (hasCeoDept && hasCeoStaff && !missingPersonalEmails && hasLeaves) {
       console.log(`[Seed] Database already seeded and up-to-date (${db.users.length} users, ${db.departments.length} departments). Skipping.`);
       return;
     }
@@ -26,6 +27,125 @@ export async function seedDatabase(force = false) {
   }
 
   console.log('[Seed] Seeding Liberation War Museum workspace data...');
+
+  // 12. Leave Requests
+  const leavesData: LeaveRequest[] = [
+    {
+      _id: 'lev_001',
+      leaveId: 'LEV-00001',
+      applicantId: 'usr_archive_1',
+      applicantDepartmentId: 'dept_archive',
+      startDate: '2026-08-10',
+      returnDate: '2026-08-12',
+      daysCount: 3,
+      leaveType: 'CASUAL',
+      leaveTypeName: 'Casual Leave',
+      reason: 'Family urgent domestic obligation and relocation assistance.',
+      stayAddress: {
+        village: 'Sector 4, Road 7, House 12',
+        postOffice: 'Uttara',
+        thana: 'Uttara East',
+        upazila: 'Dhaka North',
+        district: 'Dhaka',
+        emergencyContact: '+880 1711-223344'
+      },
+      reliefUserId: 'usr_archive_2',
+      reliefNote: 'Daily artifact cataloging checklist entrusted to Ranika.',
+      currentApproverId: 'usr_archive_head',
+      currentApproverRole: 'DEPT_HEAD',
+      status: 'APPROVED',
+      decisionReason: 'Approved as per departmental entitlement.',
+      reviewedBy: 'usr_archive_head',
+      reviewedAt: '2026-08-09T11:00:00.000Z',
+      createdAt: '2026-08-08T09:30:00.000Z',
+      updatedAt: '2026-08-09T11:00:00.000Z'
+    },
+    {
+      _id: 'lev_002',
+      leaveId: 'LEV-00002',
+      applicantId: 'usr_archive_1',
+      applicantDepartmentId: 'dept_archive',
+      startDate: '2026-09-02',
+      returnDate: '2026-09-04',
+      daysCount: 3,
+      leaveType: 'SICK',
+      leaveTypeName: 'Medical Leave',
+      reason: 'Seasonal viral fever and prescribed clinical bed rest.',
+      stayAddress: {
+        village: 'Sector 4, Road 7, House 12',
+        postOffice: 'Uttara',
+        thana: 'Uttara East',
+        upazila: 'Dhaka North',
+        district: 'Dhaka',
+        emergencyContact: '+880 1711-223344'
+      },
+      reliefUserId: 'usr_archive_2',
+      reliefNote: 'Archive accession inquiries to be handled by substitute.',
+      currentApproverId: 'usr_archive_head',
+      currentApproverRole: 'DEPT_HEAD',
+      status: 'APPROVED',
+      decisionReason: 'Approved on medical grounds.',
+      reviewedBy: 'usr_archive_head',
+      reviewedAt: '2026-09-01T15:00:00.000Z',
+      createdAt: '2026-09-01T10:15:00.000Z',
+      updatedAt: '2026-09-01T15:00:00.000Z'
+    },
+    {
+      _id: 'lev_003',
+      leaveId: 'LEV-00003',
+      applicantId: 'usr_archive_1',
+      applicantDepartmentId: 'dept_archive',
+      startDate: '2026-11-05',
+      returnDate: '2026-11-09',
+      daysCount: 5,
+      leaveType: 'EARNED',
+      leaveTypeName: 'Earned Leave',
+      reason: 'Ancestral land documentation and family congregation in hometown.',
+      stayAddress: {
+        village: 'Bhawal Mirzapur',
+        postOffice: 'Mirzapur Bazar',
+        thana: 'Gazipur Sadar',
+        upazila: 'Gazipur Sadar',
+        district: 'Gazipur',
+        emergencyContact: '+880 1711-998877'
+      },
+      reliefUserId: 'usr_archive_2',
+      reliefNote: 'Exhibition archive showcase queries to be monitored by colleague.',
+      currentApproverId: 'usr_archive_head',
+      currentApproverRole: 'DEPT_HEAD',
+      status: 'PENDING',
+      createdAt: '2026-10-28T09:00:00.000Z',
+      updatedAt: '2026-10-28T09:00:00.000Z'
+    },
+    {
+      _id: 'lev_004',
+      leaveId: 'LEV-00004',
+      applicantId: 'usr_archive_head',
+      applicantDepartmentId: 'dept_archive',
+      startDate: '2026-11-12',
+      returnDate: '2026-11-14',
+      daysCount: 3,
+      leaveType: 'CASUAL',
+      leaveTypeName: 'Casual Leave',
+      reason: 'Personal urgent medical consultation and rest.',
+      stayAddress: {
+        village: 'Shukrabad Road 1',
+        postOffice: 'Dhanmondi',
+        thana: 'Dhanmondi',
+        upazila: 'Dhaka South',
+        district: 'Dhaka',
+        emergencyContact: '+880 1819-123456'
+      },
+      reliefUserId: 'usr_archive_1',
+      reliefNote: 'Departmental daily signing handled by Assistant Archivist.',
+      currentApproverId: 'usr_ceo',
+      currentApproverRole: 'CEO',
+      status: 'PENDING',
+      createdAt: '2026-10-29T08:00:00.000Z',
+      updatedAt: '2026-10-29T08:00:00.000Z'
+    }
+  ];
+
   const defaultPassword = await bcrypt.hash('LWM@2026', 10);
 
   // 1. Departments
@@ -859,6 +979,9 @@ export async function seedDatabase(force = false) {
       }
     });
 
+    if (db.leaves.length === 0) {
+      db.leaves = leavesData;
+    }
     await db.save();
     console.log(`[Seed] Synchronized updates to existing database: ${db.users.length} total users, ${db.departments.length} total departments.`);
   } else {
@@ -874,7 +997,8 @@ export async function seedDatabase(force = false) {
       approvals: approvalsData,
       events: eventsData,
       announcements: announcementsData,
-      documents: documentsData
+      documents: documentsData,
+      leaves: leavesData
     });
     console.log(`[Seed] Successfully seeded ${usersData.length} users, ${departmentsData.length} departments, ${tasksData.length} tasks, ${taskRequestsData.length} requests, ${projectsData.length} projects into MongoDB!`);
   }

@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import {
   User, Department, Task, TaskRequest, Project,
   TaskComment, Notification, ActivityLog, Approval,
-  EventItem, Announcement, OfficeDocument, DirectMessage
+  EventItem, Announcement, OfficeDocument, DirectMessage, LeaveRequest
 } from './types';
 
 // Environment variable for MongoDB URI
@@ -74,6 +74,7 @@ const EventModel    = model<EventItem> ('EventItem',    {});
 const AnnModel      = model<Announcement>('Announcement', {});
 const DocModel      = model<OfficeDocument>('OfficeDocument', {});
 const DirectMsgModel = model<DirectMessage>('DirectMessage', {});
+const LeaveModel    = model<LeaveRequest>  ('LeaveRequest',   { leaveId: { type: String, unique: true } });
 
 // ============================================================
 // Helper: convert Mongoose doc → plain JS object matching types
@@ -120,6 +121,7 @@ class DatabaseManager {
   public announcements:Announcement[]  = [];
   public documents:    OfficeDocument[]= [];
   public messages:     DirectMessage[] = [];
+  public leaves:       LeaveRequest[]  = [];
 
   // ──────────────────────────────────────────────────────────
   // connect() — connect to MongoDB and load all data to memory
@@ -148,7 +150,7 @@ class DatabaseManager {
   // loadAll() — pull everything from MongoDB into memory
   // ──────────────────────────────────────────────────────────
   public async loadAll() {
-    const [users, depts, tasks, reqs, projects, comments, notis, logs, approvals, events, anns, docs, msgs] =
+    const [users, depts, tasks, reqs, projects, comments, notis, logs, approvals, events, anns, docs, msgs, leaves] =
       await Promise.all([
         UserModel.find().lean(),
         DeptModel.find().lean(),
@@ -163,6 +165,7 @@ class DatabaseManager {
         AnnModel.find().lean(),
         DocModel.find().lean(),
         DirectMsgModel.find().lean(),
+        LeaveModel.find().lean(),
       ]);
 
 
@@ -179,6 +182,7 @@ class DatabaseManager {
     this.announcements = anns.map(d => toPlain<Announcement>(d));
     this.documents     = docs.map(d => toPlain<OfficeDocument>(d));
     this.messages      = msgs.map(d => toPlain<DirectMessage>(d));
+    this.leaves        = (leaves || []).map(d => toPlain<LeaveRequest>(d));
 
 
 
@@ -331,12 +335,13 @@ class DatabaseManager {
       AnnModel.deleteMany({}),
       DocModel.deleteMany({}),
       DirectMsgModel.deleteMany({}),
+      LeaveModel.deleteMany({}),
     ]);
     // Clear in-memory too
     this.users = []; this.departments = []; this.tasks = [];
     this.taskRequests = []; this.projects = []; this.comments = [];
     this.notifications = []; this.activityLogs = []; this.approvals = [];
-    this.events = []; this.announcements = []; this.documents = []; this.messages = [];
+    this.events = []; this.announcements = []; this.documents = []; this.messages = []; this.leaves = [];
     console.log('[DB] All collections cleared.');
   }
 
@@ -358,6 +363,7 @@ class DatabaseManager {
         this._syncCollection(AnnModel,      this.announcements, '_id'),
         this._syncCollection(DocModel,      this.documents,     '_id'),
         this._syncCollection(DirectMsgModel, this.messages,     '_id'),
+        this._syncCollection(LeaveModel,     this.leaves,       '_id'),
       ]);
     } catch (err) {
       console.error('[DB] Save error:', err);
@@ -429,7 +435,7 @@ class DatabaseManager {
     comments?: TaskComment[]; notifications?: Notification[];
     activityLogs?: ActivityLog[]; approvals?: Approval[];
     events?: EventItem[]; announcements?: Announcement[];
-    documents?: OfficeDocument[];
+    documents?: OfficeDocument[]; leaves?: LeaveRequest[];
   }) {
     if (data.users)         this.users         = data.users;
     if (data.departments)   this.departments   = data.departments;
@@ -443,6 +449,7 @@ class DatabaseManager {
     if (data.events)        this.events        = data.events;
     if (data.announcements) this.announcements = data.announcements;
     if (data.documents)     this.documents     = data.documents;
+    if (data.leaves)        this.leaves        = data.leaves;
     this.normalizeReferences();
     this.save(); // persist to MongoDB
   }
@@ -469,6 +476,29 @@ class DatabaseManager {
     while (existing.has(candidate)) {
       nextNum++;
       candidate = `TASK-${String(nextNum).padStart(5, '0')}`;
+    }
+    return candidate;
+  }
+
+  public getNextLeaveId(): string {
+    const existing = new Set(this.leaves.map(l => (l.leaveId || '').toUpperCase()));
+    let maxNum = 0;
+    for (const l of this.leaves) {
+      if (l.leaveId) {
+        const match = l.leaveId.match(/(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+    }
+    let nextNum = maxNum + 1;
+    let candidate = `LEV-${String(nextNum).padStart(5, '0')}`;
+    while (existing.has(candidate)) {
+      nextNum++;
+      candidate = `LEV-${String(nextNum).padStart(5, '0')}`;
     }
     return candidate;
   }

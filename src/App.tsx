@@ -20,6 +20,7 @@ import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { PerformancePage } from './pages/PerformancePage';
 import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { CalendarPage } from './pages/CalendarPage';
+import { LeaveManagementPage } from './pages/LeaveManagementPage';
 import { LoginPage } from './pages/LoginPage';
 import { MessagingPage } from './pages/MessagingPage';
 import { getUserRole, isDepartmentHead } from './utils/hierarchy';
@@ -220,6 +221,10 @@ function MainApp() {
                 setIsCreateTaskOpen(true);
               }}
             />
+          )}
+
+          {currentTab === 'leaves' && (
+            <LeaveManagementPage />
           )}
 
           {currentTab === 'approvals' && (
